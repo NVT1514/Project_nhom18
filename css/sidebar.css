@@ -1,0 +1,167 @@
+/* Thiết lập chung cho Trang (Dark Mode) */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #fffafa;
+    /* Nền trang rất tối */
+    color: #000000;
+    /* Màu chữ mặc định sáng */
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* --- Thiết lập Sidebar (Dark Mode) --- */
+.sidebar {
+    width: 250px;
+    background: #1F2A38;
+    /* Nền sidebar tối hơn một chút so với body */
+    box-shadow: 5px 0 5px rgba(0, 0, 0, 0.7);
+    /* Bóng đổ mạnh hơn để nổi bật */
+    padding: 20px 0 0 0;
+    /* Giảm padding trên để avatar không quá xa */
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    /* Giữ sidebar cố định khi cuộn */
+    top: 0;
+    min-height: 100vh;
+}
+
+/* KHU VỰC THÔNG TIN NGƯỜI DÙNG */
+.user-info-container {
+    text-align: center;
+    padding: 0 0 20px 0;
+    border-bottom: 1px solid #34495E;
+    /* Đường kẻ phân cách */
+    margin-bottom: 10px;
+}
+
+/* AVATAR */
+.sidebar-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 10px auto;
+    display: block;
+    border: 3px solid #00BCD4;
+    /* Viền màu Cyan nổi bật */
+    box-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+    /* Bóng đổ phát sáng nhẹ */
+}
+
+/* TÊN ĐẦY ĐỦ (Ho_Ten) */
+.ho-ten-display {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #F0F0F0;
+    /* Màu chữ sáng */
+    margin: 5px 0 2px 0;
+    text-align: center;
+}
+
+/* TÊN ĐĂNG NHẬP (Username) */
+.username-display {
+    font-size: 0.9rem;
+    color: #95A5A6;
+    /* Màu xám nhẹ nhàng */
+    margin: 0;
+    text-align: center;
+}
+
+/* ẨN HOẶC ĐIỀU CHỈNH CÁC PHẦN TỬ CŨ (Nếu vẫn còn trong HTML) */
+.sidebar .logo,
+.sidebar h2 {
+    display: none;
+}
+
+/* --- Menu và Liên kết --- */
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    flex-grow: 1;
+}
+
+.sidebar ul li {
+    padding: 15px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background 0.2s, color 0.2s, border-left 0.2s;
+    font-weight: 500;
+    color: #E0E0E0;
+    /* Màu chữ mặc định */
+    background: transparent;
+    border-left: 5px solid transparent;
+    /* Tạo không gian cho viền active */
+}
+
+.sidebar ul li i {
+    margin-right: 15px;
+    min-width: 20px;
+    text-align: center;
+    font-size: 1.2rem;
+    color: #95A5A6;
+    /* Màu icon mặc định xám nhẹ */
+}
+
+.sidebar ul li a {
+    text-decoration: none;
+    color: inherit;
+    /* Kế thừa màu từ li */
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Trạng thái Hover */
+.sidebar ul li:hover:not(.active) {
+    background: #2C3E50;
+    /* Nền tối hơn khi hover */
+    color: #00BCD4;
+    /* Màu chữ Cyan khi hover */
+}
+
+.sidebar ul li:hover:not(.active) i {
+    color: #00BCD4;
+    /* Màu icon Cyan khi hover */
+}
+
+/* Trạng thái Active */
+.sidebar ul li.active {
+    background: #34495E;
+    /* Nền tối vừa phải cho mục active */
+    color: #FFFFFF !important;
+    border-left: 5px solid #00BCD4;
+    /* Viền Cyan nổi bật */
+}
+
+.sidebar ul li.active a {
+    color: #FFFFFF !important;
+    font-weight: bold;
+}
+
+.sidebar ul li.active i {
+    color: #00BCD4 !important;
+    /* Icon màu Cyan trên nền active */
+}
+
+/* --- Các thành phần khác (Search Bar) --- */
+.sidebar input[type="text"] {
+    width: 80%;
+    margin: 0 auto 20px auto;
+    display: block;
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: 1px solid #34495E;
+    background: #2C3E50;
+    /* Nền tối cho input */
+    color: #E0E0E0;
+    /* Chữ trắng cho input */
+}
