@@ -54,7 +54,7 @@ $result_new = mysqli_query($conn, $sql_new);
         <div class="navbar">
             <!-- Logo -->
             <div class="navbar-logo">
-                <a href="maincustomer.php"><img src="../Img/ClothiX.jpg" alt="Clothix.vn" style="height:80px"></a>
+                <a href="maincustomer.php"><img src="../Img/ClothiX.png" alt="Clothix.vn"></a>
             </div>
 
             <!-- Menu chính -->
@@ -107,6 +107,7 @@ $result_new = mysqli_query($conn, $sql_new);
                     <span class="sale">-50%</span>
                     <span>OUTLET</span>
                 </span>
+
             </div>
 
             <!-- Icon chức năng -->
@@ -130,9 +131,11 @@ $result_new = mysqli_query($conn, $sql_new);
         <!-- Thanh tìm kiếm -->
         <div id="search-bar-container" class="search-container">
             <div class="search-content-wrapper">
-                <div class="search-wrapper">
-                    <input type="text" id="searchInput" class="search-bar" placeholder="Tìm kiếm sản phẩm...">
-                    <button id="searchButton" class="search-btn"><i class="fa fa-search"></i></button>
+                <div class="search-main-area">
+                    <div class="search-wrapper">
+                        <input type="text" id="searchInput" class="search-bar" placeholder="Tìm kiếm sản phẩm...">
+                        <button id="searchButton" class="search-btn"><i class="fa fa-search"></i></button>
+                    </div>
                 </div>
                 <div class="hot-keywords">
                     <strong>Từ khóa nổi bật hôm nay</strong><br>

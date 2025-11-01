@@ -1,6 +1,6 @@
 <?php
 include "connectdb.php";
-session_start();
+
 
 function dang_ky($tai_khoan, $mat_khau, $email): bool|int
 {
@@ -48,7 +48,6 @@ function check_dang_nhap($tai_khoan, $mat_khau)
             WHERE (`tai_khoan` = '$tai_khoan' OR `email` = '$tai_khoan') 
               AND `mat_khau` = '$mat_khau'";
 
-
     $kq = mysqli_query($conn, $sql);
 
     if (!$kq) {
@@ -81,12 +80,13 @@ function lay_tai_khoan($tk, $mk)
 ?>
 
 <?php
-function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh)
+// ✅ Cập nhật hàm them_san_pham để có thêm tham số $so_luong
+function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong)
 {
     global $conn;
 
     // 1️⃣ Kiểm tra dữ liệu đầu vào
-    if (empty($ten_san_pham) || empty($gia) || empty($phan_loai) || empty($loai_chinh)) {
+    if (empty($ten_san_pham) || empty($gia) || empty($phan_loai) || empty($loai_chinh) || empty($so_luong)) {
         return "❌ Vui lòng nhập đầy đủ thông tin sản phẩm.";
     }
 
@@ -130,13 +130,13 @@ function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai
         }
     }
 
-    // 4️⃣ Thêm sản phẩm (có lưu khóa ngoại phan_loai_id)
+    // 4️⃣ Thêm sản phẩm (có lưu khóa ngoại phan_loai_id + số lượng)
     $sql_insert = "INSERT INTO san_pham 
-        (ten_san_pham, gia, mo_ta, hinh_anh, phan_loai, loai_chinh, phan_loai_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)";
+        (ten_san_pham, gia, mo_ta, hinh_anh, phan_loai, loai_chinh, phan_loai_id, so_luong)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = $conn->prepare($sql_insert);
-    $stmt->bind_param("sdssssi", $ten_san_pham, $gia, $mo_ta, $ten_file, $phan_loai, $loai_chinh, $phan_loai_id);
+    $stmt->bind_param("sdssssii", $ten_san_pham, $gia, $mo_ta, $ten_file, $phan_loai, $loai_chinh, $phan_loai_id, $so_luong);
 
     if ($stmt->execute()) {
         return true;
@@ -144,7 +144,6 @@ function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai
         return "❌ Lỗi khi thêm sản phẩm: " . $stmt->error;
     }
 }
-
 ?>
 
 <?php
@@ -165,3 +164,29 @@ function get_all_products()
 }
 ?>
 
+
+<?php
+// Lấy sản phẩm mới (sắp xếp theo ngày thêm)
+function lay_san_pham_moi($limit = 8)
+{
+    global $conn;
+    $sql = "SELECT * FROM san_pham ORDER BY ngay_tao DESC LIMIT ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Lấy sản phẩm bán chạy (theo số lượng bán)
+function lay_san_pham_ban_chay($limit = 8)
+{
+    global $conn;
+    $sql = "SELECT * FROM san_pham ORDER BY so_luong_ban DESC LIMIT ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC);
+}
+?>

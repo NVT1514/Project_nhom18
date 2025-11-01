@@ -1,12 +1,11 @@
 <?php
-include "Database/connectdb.php";
-session_start();
-
-// Kiểm tra quyền admin
-if (!isset($_SESSION['tk']) || ($_SESSION['role'] != 'admin' && $_SESSION['role'] != 'superadmin')) {
-    header("Location: login.php");
-    exit();
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('admin_session');
+    session_start();
 }
+include "Database/connectdb.php";
+
+$message = "";
 
 // --- Xử lý thêm mới ---
 if (isset($_POST['add'])) {
@@ -16,11 +15,21 @@ if (isset($_POST['add'])) {
     $trang_thai = $_POST['trang_thai'] ?? 'Đang sử dụng';
 
     if ($ten != "") {
-        $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai) VALUES (?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssss", $ten, $mo_ta, $loai_chinh, $trang_thai);
-        $stmt->execute();
-        $message = "✅ Thêm phân loại thành công!";
+        $check = $conn->prepare("SELECT id FROM phan_loai_san_pham WHERE ten_phan_loai = ?");
+        $check->bind_param("s", $ten);
+        $check->execute();
+        $check->store_result();
+
+        if ($check->num_rows > 0) {
+            $message = "⚠️ Phân loại '$ten' đã tồn tại!";
+        } else {
+            $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai)
+                VALUES (?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ssss", $ten, $mo_ta, $loai_chinh, $trang_thai);
+            $stmt->execute();
+            $message = "✅ Thêm phân loại thành công!";
+        }
     } else {
         $message = "⚠️ Tên phân loại không được để trống!";
     }
@@ -51,8 +60,35 @@ if (isset($_GET['delete'])) {
     $message = "🗑️ Đã xóa phân loại thành công!";
 }
 
-// --- Lấy danh sách ---
-$result = mysqli_query($conn, "SELECT * FROM phan_loai_san_pham ORDER BY ngay_tao DESC");
+// --- TÌM KIẾM THEO TÊN & LOẠI CHÍNH ---
+$search = $_GET['search'] ?? '';
+$filter_loai = $_GET['filter_loai'] ?? '';
+
+$sql = "SELECT * FROM phan_loai_san_pham WHERE 1=1";
+
+if (!empty($search)) {
+    $sql .= " AND ten_phan_loai LIKE ?";
+}
+if (!empty($filter_loai)) {
+    $sql .= " AND loai_chinh = ?";
+}
+
+$sql .= " ORDER BY ngay_tao DESC";
+
+$stmt = $conn->prepare($sql);
+
+if (!empty($search) && !empty($filter_loai)) {
+    $param1 = "%" . $search . "%";
+    $stmt->bind_param("ss", $param1, $filter_loai);
+} elseif (!empty($search)) {
+    $param1 = "%" . $search . "%";
+    $stmt->bind_param("s", $param1);
+} elseif (!empty($filter_loai)) {
+    $stmt->bind_param("s", $filter_loai);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -61,12 +97,11 @@ $result = mysqli_query($conn, "SELECT * FROM phan_loai_san_pham ORDER BY ngay_ta
     <meta charset="UTF-8">
     <title>Quản lý Phân loại sản phẩm</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link rel="stylesheet" href="sidebar.css"> <!-- Giữ nguyên sidebar cũ -->
+    <link rel="stylesheet" href="sidebar.css">
     <style>
-        /* MAIN CONTENT */
         .main-content {
             flex: 1;
-            padding: 30px 40px;
+            padding: 20px 40px;
             background: #f5f6fa;
             min-height: 100vh;
         }
@@ -177,50 +212,133 @@ $result = mysqli_query($conn, "SELECT * FROM phan_loai_san_pham ORDER BY ngay_ta
             color: #c62828;
         }
 
-        /* CANH TOÀN TRANG */
         .container {
             display: flex;
             min-height: 100vh;
             background: #f5f6fa;
+        }
+
+        /* Thanh tìm kiếm full width */
+        .search-bar {
+            margin-bottom: 20px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Căn chỉnh form tìm kiếm */
+        .search-form {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Gom nhóm các thành phần tìm kiếm */
+        .search-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        /* Ô nhập và dropdown chiếm toàn chiều rộng hợp lý */
+        .search-group input[type="text"] {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .search-group select {
+            width: 200px;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            background-color: #fff;
+            appearance: none;
+        }
+
+        /* Nút tìm kiếm */
+        .search-group button {
+            background: #2196f3;
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .search-group button:hover {
+            background: #0f85e5ff;
+        }
+
+        /* Nút xóa lọc */
+        .clear-filter {
+            color: #555;
+            text-decoration: none;
+            font-size: 15px;
+            white-space: nowrap;
+        }
+
+        .clear-filter:hover {
+            color: #000;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <!-- SIDEBAR -->
-        <?php include "sidebar.php"; ?>
+        <?php include "sidebar_admin.php"; ?>
 
-        <!-- MAIN -->
         <div class="main-content">
             <h1>📦 Quản lý Phân loại Sản phẩm</h1>
 
             <?php if (!empty($message)) echo "<div class='message'>$message</div>"; ?>
 
-            <!-- FORM -->
+            <!-- FORM THÊM / CẬP NHẬT -->
             <form method="POST">
                 <input type="hidden" name="id" id="id">
-
                 <input type="text" name="ten_phan_loai" id="ten_phan_loai" placeholder="Tên phân loại..." required>
-
                 <select name="loai_chinh" id="loai_chinh" required>
                     <option value="Quần">Quần</option>
                     <option value="Áo">Áo</option>
                     <option value="Giày">Giày</option>
                     <option value="Khác" selected>Khác</option>
                 </select>
-
                 <textarea name="mo_ta" id="mo_ta" placeholder="Mô tả..."></textarea>
-
                 <select name="trang_thai" id="trang_thai">
                     <option value="Đang sử dụng">Đang sử dụng</option>
                     <option value="Ngừng sử dụng">Ngừng sử dụng</option>
                 </select>
-
                 <button type="submit" name="add" id="btn-add">➕ Thêm mới</button>
                 <button type="submit" name="update" id="btn-update" style="display:none; background:#28a745;">💾 Cập nhật</button>
                 <button type="button" id="btn-cancel" style="display:none; background:#6c757d;">❌ Hủy</button>
             </form>
+
+            <!-- THANH TÌM KIẾM -->
+            <div class="search-bar">
+                <form method="GET" class="search-form">
+                    <div class="search-group">
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="🔍 Nhập tên phân loại...">
+                        <select name="filter_loai">
+                            <option value="">-- Tất cả loại --</option>
+                            <option value="Quần" <?= $filter_loai == 'Quần' ? 'selected' : '' ?>>Quần</option>
+                            <option value="Áo" <?= $filter_loai == 'Áo' ? 'selected' : '' ?>>Áo</option>
+                            <option value="Giày" <?= $filter_loai == 'Giày' ? 'selected' : '' ?>>Giày</option>
+                            <option value="Khác" <?= $filter_loai == 'Khác' ? 'selected' : '' ?>>Khác</option>
+                        </select>
+                        <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm</button>
+                        <?php if (!empty($search) || !empty($filter_loai)) { ?>
+                            <a href="phanloaisanpham.php" class="clear-filter">❌ Xóa lọc</a>
+                        <?php } ?>
+                    </div>
+                </form>
+            </div>
 
             <!-- DANH SÁCH -->
             <table>
@@ -236,30 +354,37 @@ $result = mysqli_query($conn, "SELECT * FROM phan_loai_san_pham ORDER BY ngay_ta
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $stt = 1;
-                    while ($row = mysqli_fetch_assoc($result)) { ?>
+                    <?php
+                    $stt = 1;
+                    if ($result && mysqli_num_rows($result) > 0) {
+                        while ($row = mysqli_fetch_assoc($result)) { ?>
+                            <tr>
+                                <td><?= $stt++ ?></td>
+                                <td><?= htmlspecialchars($row['ten_phan_loai']) ?></td>
+                                <td><?= htmlspecialchars($row['loai_chinh']) ?></td>
+                                <td><?= htmlspecialchars($row['mo_ta']) ?></td>
+                                <td>
+                                    <span class="status <?= $row['trang_thai'] == 'Đang sử dụng' ? 'active' : 'inactive' ?>">
+                                        <?= $row['trang_thai'] ?>
+                                    </span>
+                                </td>
+                                <td><?= $row['ngay_tao'] ?></td>
+                                <td class="actions">
+                                    <a href="#" class="edit"
+                                        data-id="<?= $row['id'] ?>"
+                                        data-ten="<?= htmlspecialchars($row['ten_phan_loai']) ?>"
+                                        data-loai="<?= htmlspecialchars($row['loai_chinh']) ?>"
+                                        data-mo_ta="<?= htmlspecialchars($row['mo_ta']) ?>"
+                                        data-trang_thai="<?= $row['trang_thai'] ?>"><i class="fa fa-pen"></i> Sửa</a>
+                                    <a href="?delete=<?= $row['id'] ?>" onclick="return confirm('Xác nhận xóa phân loại này?')">
+                                        <i class="fa fa-trash"></i> Xóa
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php }
+                    } else { ?>
                         <tr>
-                            <td><?= $stt++ ?></td>
-                            <td><?= htmlspecialchars($row['ten_phan_loai']) ?></td>
-                            <td><?= htmlspecialchars($row['loai_chinh']) ?></td>
-                            <td><?= htmlspecialchars($row['mo_ta']) ?></td>
-                            <td>
-                                <span class="status <?= $row['trang_thai'] == 'Đang sử dụng' ? 'active' : 'inactive' ?>">
-                                    <?= $row['trang_thai'] ?>
-                                </span>
-                            </td>
-                            <td><?= $row['ngay_tao'] ?></td>
-                            <td class="actions">
-                                <a href="#" class="edit"
-                                    data-id="<?= $row['id'] ?>"
-                                    data-ten="<?= htmlspecialchars($row['ten_phan_loai']) ?>"
-                                    data-loai="<?= htmlspecialchars($row['loai_chinh']) ?>"
-                                    data-mo_ta="<?= htmlspecialchars($row['mo_ta']) ?>"
-                                    data-trang_thai="<?= $row['trang_thai'] ?>"><i class="fa fa-pen"></i> Sửa</a>
-                                <a href="?delete=<?= $row['id'] ?>" onclick="return confirm('Xác nhận xóa phân loại này?')">
-                                    <i class="fa fa-trash"></i> Xóa
-                                </a>
-                            </td>
+                            <td colspan="7" style="text-align:center;">Không tìm thấy phân loại nào!</td>
                         </tr>
                     <?php } ?>
                 </tbody>

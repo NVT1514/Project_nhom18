@@ -1,45 +1,45 @@
 <?php
-session_start();
 include "Database/connectdb.php";
+session_start();
 
-// Kiểm tra dữ liệu đầu vào
-if (!isset($_POST['id'])) {
-    die("Thiếu thông tin sản phẩm!");
+// Kiểm tra đăng nhập
+if (!isset($_SESSION['user_id'])) {
+    echo "<script>alert('Vui lòng đăng nhập trước khi thêm vào giỏ hàng!'); window.location.href='login.php';</script>";
+    exit();
 }
 
-$product_id = intval($_POST['id']);
-$quantity = intval($_POST['quantity'] ?? 1);
+$user_id = $_SESSION['user_id'];
+$san_pham_id = intval($_POST['id']);
+$so_luong = intval($_POST['quantity']);
+$size = $_POST['size'] ?? 'M'; // nếu không có chọn size thì mặc định là M
 
-// Lấy thông tin sản phẩm từ cơ sở dữ liệu
-$sql = "SELECT * FROM san_pham WHERE id = $product_id";
-$result = mysqli_query($conn, $sql);
-
-if (!$result || mysqli_num_rows($result) == 0) {
-    die("Không tìm thấy sản phẩm!");
+// Kiểm tra sản phẩm có tồn tại trong DB không
+$sql_check_sp = "SELECT * FROM san_pham WHERE id = $san_pham_id LIMIT 1";
+$result_sp = mysqli_query($conn, $sql_check_sp);
+if (!$result_sp || mysqli_num_rows($result_sp) == 0) {
+    echo "<script>alert('Sản phẩm không tồn tại!'); history.back();</script>";
+    exit();
 }
 
-$product = mysqli_fetch_assoc($result);
+// Kiểm tra sản phẩm đã có trong giỏ hàng chưa
+$sql_check = "SELECT * FROM gio_hang WHERE user_id = $user_id AND san_pham_id = $san_pham_id AND size = '$size'";
+$result = mysqli_query($conn, $sql_check);
 
-// Khởi tạo giỏ hàng nếu chưa có
-if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart'])) {
-    $_SESSION['cart'] = [];
-}
-
-// Nếu sản phẩm đã có trong giỏ -> tăng số lượng
-if (isset($_SESSION['cart'][$product_id])) {
-    $_SESSION['cart'][$product_id]['quantity'] += $quantity;
+if (mysqli_num_rows($result) > 0) {
+    // Nếu đã có thì cập nhật số lượng
+    $sql_update = "UPDATE gio_hang SET so_luong = so_luong + $so_luong 
+                   WHERE user_id = $user_id AND san_pham_id = $san_pham_id AND size = '$size'";
+    mysqli_query($conn, $sql_update);
 } else {
-    // Nếu chưa có -> thêm mới với đầy đủ thông tin sản phẩm
-    $_SESSION['cart'][$product_id] = [
-        'id' => $product['id'],
-        'ten_san_pham' => $product['ten_san_pham'],
-        'gia' => $product['gia'],
-        'hinh_anh' => $product['hinh_anh'],
-        'mo_ta' => $product['mo_ta'],
-        'quantity' => $quantity
-    ];
+    // Nếu chưa có thì thêm mới
+    $sql_insert = "INSERT INTO gio_hang (user_id, san_pham_id, so_luong, size)
+                   VALUES ($user_id, $san_pham_id, $so_luong, '$size')";
+    mysqli_query($conn, $sql_insert);
 }
 
-// Chuyển hướng về trang giỏ hàng
-header("Location: cart.php");
+// Thông báo và quay lại
+echo "<script>
+    alert('✅ Đã thêm sản phẩm vào giỏ hàng!');
+    window.location.href = 'chitietsanpham.php?id=$san_pham_id';
+</script>";
 exit();

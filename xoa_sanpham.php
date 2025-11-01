@@ -20,7 +20,7 @@ if (isset($_GET['id'])) {
         // Xóa sản phẩm khỏi DB
         $sql_delete = "DELETE FROM san_pham WHERE id = $id";
         if (mysqli_query($conn, $sql_delete)) {
-            header("Location: ds_sanpham.php?msg=deleted");
+            header("Location: khohang.php?msg=deleted");
             exit();
         } else {
             echo "Lỗi khi xóa: " . mysqli_error($conn);

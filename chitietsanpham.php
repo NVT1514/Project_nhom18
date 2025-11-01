@@ -17,12 +17,6 @@ if (!$result || mysqli_num_rows($result) == 0) {
     die("Không tìm thấy sản phẩm!");
 }
 $product = mysqli_fetch_assoc($result);
-
-// --- Kiểm tra đăng nhập ---
-if (!isset($_SESSION['tk'])) {
-    header("Location: login.php");
-    exit();
-}
 ?>
 
 <!DOCTYPE html>
@@ -31,15 +25,19 @@ if (!isset($_SESSION['tk'])) {
 <head>
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($product['ten_san_pham']) ?></title>
-    <link rel="stylesheet" href="../css/chitietsanpham.css">
+    <link rel="stylesheet" href="css/chitietsanpham.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .product-detail-container {
             display: flex;
             justify-content: center;
             gap: 40px;
-            margin: 50px auto;
             max-width: 1100px;
+            padding-top: 100px;
+        }
+
+        .product-gallery {
+            position: relative;
         }
 
         .product-gallery img.main-image {
@@ -47,6 +45,19 @@ if (!isset($_SESSION['tk'])) {
             height: 350px;
             border-radius: 10px;
             object-fit: cover;
+        }
+
+        .product-gallery .sold-out {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 0, 0, 0.7);
+            color: #fff;
+            padding: 5px 12px;
+            font-weight: bold;
+            border-radius: 5px;
+            font-size: 16px;
+            z-index: 10;
         }
 
         .thumbnails img {
@@ -89,6 +100,35 @@ if (!isset($_SESSION['tk'])) {
             border-radius: 5px;
         }
 
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .quantity-control button {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background-color: #ddd;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .quantity-control button:hover {
+            background-color: #ccc;
+        }
+
+        .quantity-control input {
+            width: 60px;
+            text-align: center;
+            padding: 5px;
+            font-size: 16px;
+        }
+
         .button-group {
             display: flex;
             gap: 10px;
@@ -96,7 +136,6 @@ if (!isset($_SESSION['tk'])) {
         }
 
         .btn-cart,
-        .btn-wishlist,
         .btn-back,
         .btn-buy {
             padding: 10px 15px;
@@ -115,12 +154,6 @@ if (!isset($_SESSION['tk'])) {
         .btn-cart:hover {
             background-color: #007bff;
             color: white;
-        }
-
-        .btn-wishlist {
-            color: red;
-            border: 1px solid red;
-            background-color: white;
         }
 
         .btn-back {
@@ -143,6 +176,8 @@ if (!isset($_SESSION['tk'])) {
         .related-products {
             margin: 50px auto;
             max-width: 1100px;
+            width: 100%;
+            padding: 0 10px;
         }
 
         .related-products h2 {
@@ -151,7 +186,7 @@ if (!isset($_SESSION['tk'])) {
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 20px;
         }
 
@@ -178,6 +213,11 @@ if (!isset($_SESSION['tk'])) {
         .related-item span {
             color: red;
         }
+
+        .btn-disabled {
+            background-color: gray !important;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -185,62 +225,65 @@ if (!isset($_SESSION['tk'])) {
     <?php include 'header.php'; ?>
 
     <div class="product-detail-container">
-        <!-- Hình ảnh sản phẩm -->
         <div class="product-gallery">
-            <img class="main-image" src="<?= !empty($product['hinh_anh']) ? $product['hinh_anh'] : '../uploads/no-image.png' ?>"
+            <img class="main-image"
+                src="<?= !empty($product['hinh_anh']) ? 'uploads/' . htmlspecialchars($product['hinh_anh']) : 'uploads/no-image.png' ?>"
                 alt="<?= htmlspecialchars($product['ten_san_pham']) ?>">
+
+            <?php if (isset($product['so_luong']) && $product['so_luong'] == 0): ?>
+                <div class="sold-out">HẾT HÀNG</div>
+            <?php endif; ?>
+
             <div class="thumbnails">
-                <img src="<?= $product['hinh_anh'] ?>" onclick="changeImage(this)">
-                <img src="../uploads/sample1.jpg" onclick="changeImage(this)">
-                <img src="../uploads/sample2.jpg" onclick="changeImage(this)">
+                <img src="uploads/<?= htmlspecialchars($product['hinh_anh']) ?>" onclick="changeImage(this)">
             </div>
         </div>
 
-        <!-- Thông tin sản phẩm -->
         <div class="product-info">
             <h1 class="product-title"><?= htmlspecialchars($product['ten_san_pham']) ?></h1>
             <p class="product-price"><?= number_format($product['gia'], 0, ',', '.') ?>đ</p>
-
-            <div class="product-options">
-                <label>Size:</label>
-                <select>
-                    <option>S</option>
-                    <option>M</option>
-                    <option>L</option>
-                    <option>XL</option>
-                </select>
-
-                <label>Màu sắc:</label>
-                <select>
-                    <option>Đen</option>
-                    <option>Trắng</option>
-                    <option>Xám</option>
-                </select>
-            </div>
-
             <p class="product-description"><?= nl2br(htmlspecialchars($product['mo_ta'])) ?></p>
 
-            <!-- Nút thêm và mua -->
-            <div class="button-group">
-                <form method="POST" action="add_to_cart.php" style="display:inline-block;">
-                    <input type="hidden" name="id" value="<?= $product['id'] ?>">
-                    <input type="hidden" name="quantity" value="1">
-                    <button type="submit" class="btn-cart">Thêm vào giỏ</button>
-                </form>
+            <div class="product-options">
+                <?php if (isset($product['so_luong']) && $product['so_luong'] > 0): ?>
+                    <form method="POST" action="add_to_cart.php" class="product-action-form">
+                        <input type="hidden" name="id" value="<?= $product['id'] ?>">
 
-                <button class="btn-wishlist"><i class="fa fa-heart"></i> Yêu thích</button>
+                        <!-- CHỌN SIZE -->
+                        <label for="size">Chọn size:</label>
+                        <select name="size" id="size" required>
+                            <option value="S">S</option>
+                            <option value="M" selected>M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                        </select>
 
-                <a href="maincustomer.php">
-                    <button type="button" class="btn-back">Quay lại</button>
-                </a>
+                        <!-- CHỌN SỐ LƯỢNG -->
+                        <div class="quantity-control">
+                            <label for="quantity">Số lượng:</label>
+                            <button type="button" onclick="changeQuantity(-1)">−</button>
+                            <input type="number" name="quantity" id="quantity" value="1" min="1"
+                                max="<?= $product['so_luong'] ?>">
+                            <button type="button" onclick="changeQuantity(1)">+</button>
+                            <small style="color:#555;">Còn lại: <?= $product['so_luong'] ?></small>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="submit" name="add_cart" class="btn-cart">
+                                <i class="fa-solid fa-cart-plus"></i> Thêm vào giỏ
+                            </button>
+
+                            <button type="submit" name="buy_now" formaction="add_to_cart.php" class="btn-buy">
+                                <i class="fa-solid fa-bolt"></i> Mua ngay
+                            </button>
+                        </div>
+                    </form>
+                <?php else: ?>
+                    <div style="padding: 15px; background: #f8d7da; color: #721c24; border-radius: 8px; text-align:center; font-weight:bold;">
+                        Sản phẩm hiện tại đã hết hàng
+                    </div>
+                <?php endif; ?>
             </div>
-
-            <form method="POST" action="add_to_cart.php" style="margin-top: 15px;">
-                <input type="hidden" name="id" value="<?= $product['id'] ?>">
-                <input type="hidden" name="quantity" value="1">
-                <input type="hidden" name="redirect" value="cart.php">
-                <button type="submit" class="btn-buy">MUA NGAY</button>
-            </form>
         </div>
     </div>
 
@@ -253,12 +296,12 @@ if (!isset($_SESSION['tk'])) {
             $related = mysqli_query($conn, $sql_related);
             while ($item = mysqli_fetch_assoc($related)) {
                 echo '<div class="related-item">
-                        <a href="chitietsanpham.php?id=' . $item['id'] . '">
-                            <img src="' . $item['hinh_anh'] . '" alt="">
-                            <p>' . $item['ten_san_pham'] . '</p>
-                            <span>' . number_format($item['gia'], 0, ',', '.') . 'đ</span>
-                        </a>
-                      </div>';
+                    <a href="chitietsanpham.php?id=' . $item['id'] . '">
+                        <img src="uploads/' . htmlspecialchars($item['hinh_anh']) . '" alt="">
+                        <p>' . htmlspecialchars($item['ten_san_pham']) . '</p>
+                        <span>' . number_format($item['gia'], 0, ',', '.') . 'đ</span>
+                    </a>
+                </div>';
             }
             ?>
         </div>
@@ -269,6 +312,16 @@ if (!isset($_SESSION['tk'])) {
     <script>
         function changeImage(img) {
             document.querySelector('.main-image').src = img.src;
+        }
+
+        function changeQuantity(change) {
+            const input = document.getElementById('quantity');
+            const max = parseInt(input.max);
+            let current = parseInt(input.value);
+            current += change;
+            if (current < 1) current = 1;
+            if (current > max) current = max;
+            input.value = current;
         }
     </script>
 </body>

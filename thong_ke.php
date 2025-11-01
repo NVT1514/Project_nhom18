@@ -1,76 +1,72 @@
 <?php
-include "Database/connectdb.php"; // Kết nối CSDL
 
-// =================== LẤY SỐ LIỆU THỐNG KÊ ===================
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('admin_session');
+    session_start();
+}
+include "Database/connectdb.php";
 
-// Tổng số đơn hàng
-$sql_orders = "SELECT COUNT(*) AS total_orders FROM orders";
+// ================= KIỂM TRA QUYỀN ADMIN =================
+if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'admin' && $_SESSION['role'] != 'superadmin')) {
+    echo "<script>alert('Bạn không có quyền truy cập trang này!'); window.location.href='login.php';</script>";
+    exit();
+}
+
+
+// =================== LẤY DỮ LIỆU THỐNG KÊ ===================
+$sql_orders = "SELECT COUNT(*) AS total_orders FROM don_hang";
 $total_orders = mysqli_fetch_assoc(mysqli_query($conn, $sql_orders))['total_orders'] ?? 0;
 
-// Tổng doanh thu
-$sql_revenue = "SELECT SUM(total) AS total_revenue FROM orders";
+$sql_revenue = "SELECT SUM(total) AS total_revenue FROM don_hang";
 $total_revenue = mysqli_fetch_assoc(mysqli_query($conn, $sql_revenue))['total_revenue'] ?? 0;
 
-// Tổng số người dùng
 $sql_users = "SELECT COUNT(*) AS total_users FROM user WHERE role='user'";
 $total_users = mysqli_fetch_assoc(mysqli_query($conn, $sql_users))['total_users'] ?? 0;
 
-// Tổng số sản phẩm
 $sql_products = "SELECT COUNT(*) AS total_products FROM san_pham";
 $total_products = mysqli_fetch_assoc(mysqli_query($conn, $sql_products))['total_products'] ?? 0;
 
-// Bình luận (giả lập nếu chưa có bảng comment)
-$total_comments = 54;
+// =================== ĐƠN HÀNG GẦN ĐÂY ===================
+$sql_recent_orders = "
+    SELECT dh.id, dh.order_id, dh.fullname, dh.total, dh.status, dh.created_at, u.Ho_Ten AS ten_nguoi_dung
+    FROM don_hang dh
+    LEFT JOIN user u ON dh.user_id = u.id
+    ORDER BY dh.created_at DESC
+    LIMIT 5
+";
+$recent_orders = mysqli_query($conn, $sql_recent_orders);
 
-// =================== DỮ LIỆU DOANH THU THEO THÁNG ===================
+// =================== DỮ LIỆU BIỂU ĐỒ ===================
 $sql_chart = "
-    SELECT 
-        DATE_FORMAT(created_at, '%m/%Y') AS month,
-        SUM(total) AS revenue,
-        COUNT(*) AS orders
-    FROM orders
+    SELECT DATE_FORMAT(created_at, '%m/%Y') AS month, SUM(total) AS revenue
+    FROM don_hang
     GROUP BY DATE_FORMAT(created_at, '%m/%Y')
     ORDER BY MIN(created_at)
 ";
-
 $result_chart = mysqli_query($conn, $sql_chart);
 
 $months = [];
 $revenues = [];
-$order_counts = [];
-
 while ($row = mysqli_fetch_assoc($result_chart)) {
     $months[] = $row['month'];
     $revenues[] = (float)$row['revenue'];
-    $order_counts[] = (int)$row['orders'];
 }
 
 $months_json = json_encode($months);
 $revenues_json = json_encode($revenues);
-$order_counts_json = json_encode($order_counts);
 
-// =================== DỮ LIỆU CHO BIỂU ĐỒ TRÒN ===================
-$sql_pie = "
-    SELECT phan_loai AS category, COUNT(*) AS total
+// =================== TOP SELLER ===================
+$sql_top_seller = "
+    SELECT 
+        ten_san_pham, 
+        hinh_anh, 
+        so_luong_ban, 
+        (so_luong_ban * gia) AS total_revenue
     FROM san_pham
-    GROUP BY phan_loai
+    ORDER BY so_luong_ban DESC
+    LIMIT 5
 ";
-$result_pie = mysqli_query($conn, $sql_pie);
-
-$categories = [];
-$category_counts = [];
-while ($row = mysqli_fetch_assoc($result_pie)) {
-    $categories[] = $row['category'];
-    $category_counts[] = (int)$row['total'];
-}
-
-$categories_json = json_encode($categories);
-$category_counts_json = json_encode($category_counts);
-
-// =================== TỶ LỆ (Progress Circle) ===================
-$percent_comments = 75;
-$percent_users = $total_users > 0 ? min(100, round(($total_users / 20) * 100)) : 50;
-$percent_visitors = 30;
+$top_seller = mysqli_query($conn, $sql_top_seller);
 ?>
 
 <!DOCTYPE html>
@@ -79,282 +75,448 @@ $percent_visitors = 30;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thống kê</title>
-    <link rel="stylesheet" href="style.css">
-
+    <title>Bảng thống kê</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            background: #f7f7f7;
-            font-family: "Segoe UI", sans-serif;
+            font-family: 'Poppins', sans-serif;
+            background: #f4f6fa;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
         }
 
         .main-content {
             flex: 1;
             padding: 30px;
+            padding-top: 0%;
+            transition: all 0.3s ease;
         }
 
-        .main-content h1 {
-            margin: 0 0 30px 0;
-            color: #333;
-        }
-
-        .stats {
+        /* ==== TOP BAR ==== */
+        .topbar {
             display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-box {
+            justify-content: space-between;
+            align-items: center;
             background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px #e0e0e0;
-            flex: 1;
-            text-align: center;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
         }
 
-        .stat-box i {
-            font-size: 2rem;
-            color: #2196f3;
-            margin-bottom: 10px;
-        }
-
-        .stat-box .number {
-            font-size: 2rem;
-            font-weight: bold;
-        }
-
-        .stat-box .desc {
-            color: #888;
-            font-size: 1rem;
-        }
-
-        .chart-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-
-        .chart {
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px #e0e0e0;
-        }
-
-        canvas {
-            width: 100% !important;
-            height: 350px !important;
-        }
-
-        .progress-cards {
-            display: flex;
-            gap: 20px;
-            margin-top: 30px;
-        }
-
-        .progress-card {
-            background: #fff;
-            border-radius: 10px;
-            flex: 1;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 8px #e0e0e0;
-        }
-
-        .progress-circle {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: 6px solid #2196f3;
+        .search-box {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin: 0 auto 10px auto;
+            background: #f1f3f6;
+            border-radius: 8px;
+            padding: 8px 12px;
+            width: 400px;
+        }
+
+        .search-box input {
+            border: none;
+            background: transparent;
+            outline: none;
+            margin-left: 8px;
+        }
+
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-box img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        /* ==== OVERVIEW CARDS ==== */
+        .overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+        }
+
+        .card h4 {
+            color: #777;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .card .value {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .trend {
+            font-size: 0.85rem;
+            color: #27ae60;
+        }
+
+        /* ==== CHART + TOP SELLER ==== */
+        .chart-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .chart-container,
+        .top-seller {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .chart-container h3,
+        .top-seller h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        /* ==== BẢNG TOP SELLER ==== */
+        .top-seller table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .top-seller th,
+        .top-seller td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f3f3f3;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .top-seller th {
+            color: #777;
+            font-weight: 500;
+        }
+
+        .top-seller td img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            object-fit: cover;
+            transition: transform 0.2s ease;
+        }
+
+        .top-seller td img:hover {
+            transform: scale(1.1);
+        }
+
+        /* ==== TOP 1 HIỆU ỨNG NỔI BẬT ==== */
+        .top-seller tr.top-1 {
+            background: linear-gradient(135deg, #fffbe6, #fff1b8);
+            border-left: 4px solid gold;
+            animation: topOneEntrance 1.2s ease-out, glowRotate 3s infinite linear;
+            transform-origin: center;
+            position: relative;
+        }
+
+        .top-seller tr.top-1 td {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .top-seller tr.top-1::before {
+            content: "🏆 TOP 1";
+            position: absolute;
+            top: -10px;
+            right: 12px;
+            background: gold;
+            color: white;
             font-weight: bold;
-            font-size: 1.1rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
         }
 
-        .progress-card.comments .progress-circle {
-            border-color: #4caf50;
+        @keyframes topOneEntrance {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) rotate(-3deg);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale(1.05) rotate(2deg);
+            }
+
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
         }
 
-        .progress-card.users .progress-circle {
-            border-color: #ffc107;
+        @keyframes glowRotate {
+            0% {
+                box-shadow: 0 0 10px rgba(241, 196, 15, 0.4);
+                filter: hue-rotate(0deg);
+            }
+
+            50% {
+                box-shadow: 0 0 25px rgba(241, 196, 15, 0.7);
+                filter: hue-rotate(20deg);
+            }
+
+            100% {
+                box-shadow: 0 0 10px rgba(241, 196, 15, 0.4);
+                filter: hue-rotate(0deg);
+            }
         }
 
-        .progress-card.visitors .progress-circle {
-            border-color: #00bcd4;
+        /* ==== RECENT ORDERS & ACTIVITIES ==== */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        .recent-orders,
+        .activities {
+            background: #fff;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .recent-orders h3,
+        .activities h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        /* ==== FIX GIAO DIỆN RECENT ORDERS ==== */
+        .recent-orders table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .recent-orders th,
+        .recent-orders td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f3f3f3;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .recent-orders th {
+            color: #777;
+            font-weight: 500;
+        }
+
+        .recent-orders tr:hover {
+            background-color: #f9fafc;
+        }
+
+        .status {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #fff;
+            font-weight: 500;
+            display: inline-block;
+            text-align: center;
+            min-width: 75px;
+        }
+
+        .pending {
+            background: #f39c12;
+        }
+
+        .completed {
+            background: #27ae60;
+        }
+
+        .canceled {
+            background: #e74c3c;
         }
     </style>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 
 <body>
     <div class="container">
-        <?php include 'sidebar.php'; ?>
+        <?php include "sidebar_admin.php"; ?>
         <div class="main-content">
-            <div class="header">
-                <h1>Dashboard</h1>
-            </div>
-
-            <!-- Thống kê tổng -->
-            <div class="stats">
-                <div class="stat-box">
-                    <i class="fa fa-shopping-cart"></i>
-                    <div class="number"><?php echo $total_orders; ?></div>
-                    <div class="desc">TOTAL ORDERS</div>
+            <h1>Dashboard</h1>
+            <div class="topbar">
+                <div class="search-box">
+                    <i class="fa fa-search"></i>
+                    <input type="text" placeholder="Tìm kiếm...">
                 </div>
-                <div class="stat-box">
-                    <i class="fa fa-comments"></i>
-                    <div class="number"><?php echo $total_comments; ?></div>
-                    <div class="desc">COMMENTS</div>
-                </div>
-                <div class="stat-box">
-                    <i class="fas fa-chart-line"></i>
-                    <div class="number">$<?php echo number_format($total_revenue, 2); ?></div>
-                    <div class="desc">REVENUE GENERATED</div>
-                </div>
-                <div class="stat-box">
-                    <i class="fa fa-users"></i>
-                    <div class="number"><?php echo $total_users; ?></div>
-                    <div class="desc">USERS</div>
+                <div class="user-box">
+                    <i class="fa-regular fa-bell"></i>
+                    <a href="admin.php"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar"></a>
                 </div>
             </div>
 
-            <!-- Các biểu đồ -->
-            <div class="chart-container">
-                <div class="chart">
-                    <h3>Biểu đồ doanh thu theo tháng</h3>
+            <!-- Overview Cards -->
+            <div class="overview">
+                <div class="card">
+                    <h4>Tổng đơn hàng</h4>
+                    <div class="value"><?= $total_orders; ?></div>
+                    <div class="trend">+3.1% so với tháng trước</div>
+                </div>
+                <div class="card">
+                    <h4>Tổng doanh thu</h4>
+                    <div class="value"><?= number_format($total_revenue, 0, ',', '.'); ?> ₫</div>
+                    <div class="trend">+2.8% tăng trưởng</div>
+                </div>
+                <div class="card">
+                    <h4>Người dùng</h4>
+                    <div class="value"><?= $total_users; ?></div>
+                    <div class="trend">+1.2% tháng này</div>
+                </div>
+                <div class="card">
+                    <h4>Sản phẩm</h4>
+                    <div class="value"><?= $total_products; ?></div>
+                    <div class="trend">Cập nhật mới nhất</div>
+                </div>
+            </div>
+
+            <!-- Chart + Top Seller -->
+            <div class="chart-section">
+                <div class="chart-container">
+                    <h3>Doanh thu hàng tháng</h3>
                     <canvas id="revenueChart"></canvas>
                 </div>
-                <div class="chart">
-                    <h3>So sánh đơn hàng và doanh thu</h3>
-                    <canvas id="compareChart"></canvas>
+
+                <div class="top-seller">
+                    <h3><i class="fa-solid fa-crown"></i> Top Seller</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th>Đã bán</th>
+                                <th>Doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $rank = 0;
+                            while ($row = mysqli_fetch_assoc($top_seller)) :
+                                $rank++;
+                                $topClass = ($rank == 1) ? "top-1" : "";
+                            ?>
+                                <tr class="<?= $topClass; ?>">
+                                    <td style="display:flex;align-items:center;gap:10px;">
+                                        <img src="<?= htmlspecialchars($row['hinh_anh']); ?>" alt="<?= htmlspecialchars($row['ten_san_pham']); ?>">
+                                        <span><?= htmlspecialchars($row['ten_san_pham']); ?></span>
+                                    </td>
+                                    <td><?= $row['so_luong_ban']; ?></td>
+                                    <td><?= number_format($row['total_revenue'], 0, ',', '.'); ?> ₫</td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <div class="chart">
-                <h3>Tỉ lệ loại sản phẩm bán ra</h3>
-                <canvas id="pieChart"></canvas>
-            </div>
+            <!-- Recent Orders & Activities -->
+            <div class="bottom-section">
+                <div class="recent-orders">
+                    <h3>Recent Orders</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Khách hàng</th>
+                                <th>Tổng tiền</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($row = mysqli_fetch_assoc($recent_orders)) :
+                                $status_class = ($row['status'] == 1) ? 'completed' : (($row['status'] == 0) ? 'pending' : 'canceled');
+                                $status_text = ($row['status'] == 1) ? 'Hoàn tất' : (($row['status'] == 0) ? 'Đang xử lý' : 'Hủy');
+                            ?>
+                                <tr>
+                                    <td>#<?= htmlspecialchars($row['order_id']); ?></td>
+                                    <td><?= htmlspecialchars($row['fullname'] ?? $row['ten_nguoi_dung'] ?? 'Khách'); ?></td>
+                                    <td><?= number_format($row['total'], 0, ',', '.'); ?> ₫</td>
+                                    <td><span class="status <?= $status_class; ?>"><?= $status_text; ?></span></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- Tiến trình -->
-            <div class="progress-cards">
-                <div class="progress-card comments">
-                    <div class="progress-circle">
-                        <span><?php echo $percent_comments; ?>%</span>
+                <div class="activities">
+                    <h3>Recent Activities</h3>
+                    <div class="activity"><i class="fa fa-user-plus"></i>
+                        <div class="activity-details"><span>Người dùng mới: <b>hoangminh</b></span><small>5 phút trước</small></div>
                     </div>
-                    <div class="label">Comments</div>
-                </div>
-                <div class="progress-card users">
-                    <div class="progress-circle">
-                        <span><?php echo $percent_users; ?>%</span>
+                    <div class="activity"><i class="fa fa-shopping-cart"></i>
+                        <div class="activity-details"><span>Đơn hàng mới được hoàn tất</span><small>20 phút trước</small></div>
                     </div>
-                    <div class="label">Users</div>
-                </div>
-                <div class="progress-card visitors">
-                    <div class="progress-circle">
-                        <span><?php echo $percent_visitors; ?>%</span>
+                    <div class="activity"><i class="fa fa-comment"></i>
+                        <div class="activity-details"><span>Người dùng <b>lananh</b> đã bình luận sản phẩm</span><small>1 giờ trước</small></div>
                     </div>
-                    <div class="label">Visitors</div>
+                    <div class="activity"><i class="fa fa-box"></i>
+                        <div class="activity-details"><span>5 sản phẩm mới đã được thêm</span><small>2 giờ trước</small></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Chart.js scripts -->
+    <!-- ChartJS -->
     <script>
+        const ctx = document.getElementById('revenueChart').getContext('2d');
         const months = <?php echo $months_json; ?>;
         const revenues = <?php echo $revenues_json; ?>;
-        const orders = <?php echo $order_counts_json; ?>;
-        const categories = <?php echo $categories_json; ?>;
-        const categoryCounts = <?php echo $category_counts_json; ?>;
-
-        // Biểu đồ doanh thu theo tháng (Line)
-        new Chart(document.getElementById("revenueChart"), {
-            type: 'line',
+        new Chart(ctx, {
+            type: 'bar',
             data: {
                 labels: months,
                 datasets: [{
                     label: 'Doanh thu (VNĐ)',
                     data: revenues,
-                    borderColor: '#2196f3',
-                    backgroundColor: 'rgba(33,150,243,0.2)',
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 5
+                    backgroundColor: '#4e73df',
+                    borderRadius: 8
                 }]
             },
             options: {
                 plugins: {
                     legend: {
-                        position: 'top'
+                        display: false
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: value => value.toLocaleString('vi-VN') + ' ₫'
+                            callback: v => v.toLocaleString('vi-VN') + ' ₫'
                         }
-                    }
-                }
-            }
-        });
-
-        // Biểu đồ cột - So sánh đơn hàng & doanh thu
-        new Chart(document.getElementById("compareChart"), {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                        label: 'Số đơn hàng',
-                        data: orders,
-                        backgroundColor: 'rgba(255,193,7,0.7)'
                     },
-                    {
-                        label: 'Doanh thu (VNĐ)',
-                        data: revenues,
-                        backgroundColor: 'rgba(33,150,243,0.7)'
-                    }
-                ]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        position: 'top'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // Biểu đồ tròn - Tỉ lệ sản phẩm
-        new Chart(document.getElementById("pieChart"), {
-            type: 'pie',
-            data: {
-                labels: categories,
-                datasets: [{
-                    data: categoryCounts,
-                    backgroundColor: ['#2196f3', '#4caf50', '#ffc107', '#ff5722', '#9c27b0'],
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        position: 'right'
-                    },
-                    title: {
-                        display: true,
-                        text: 'Tỉ lệ loại sản phẩm bán ra'
+                    x: {
+                        grid: {
+                            display: false
+                        }
                     }
                 }
             }

@@ -1,5 +1,8 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('admin_session');
+    session_start();
+}
 include "Database/connectdb.php";
 
 // Kiểm tra đăng nhập
@@ -243,7 +246,7 @@ $stmt->close();
 
 <body>
     <div class="container">
-        <?php include 'sidebar.php'; ?>
+        <?php include 'sidebar_admin.php'; ?>
         <div class="main-content">
             <div class="profile-container">
                 <?php if (isset($_GET['success'])): ?>

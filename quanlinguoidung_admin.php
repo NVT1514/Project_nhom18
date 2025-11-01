@@ -1,22 +1,34 @@
 <?php
-session_start();
-include "Database/connectdb.php";
-
-// Kiểm tra đăng nhập và quyền admin HOẶC superadmin
-if (!isset($_SESSION['tk']) || ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'superadmin')) {
-    header("Location: login.php");
-    exit();
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('admin_session');
+    session_start();
 }
+include "Database/connectdb.php";
+ob_start();
 
-// Lấy danh sách người dùng từ CSDL, CHỈ LẤY NHỮNG AI CÓ role LÀ 'user'
-// Sử dụng Prepared Statement để an toàn hơn, mặc dù giá trị lọc là cố định
-$sql = "SELECT id, Tai_Khoan, Email, role, Ho_Ten, Mat_Khau FROM user WHERE role = ?";
+// Biến lưu từ khóa tìm kiếm
+$search_keyword = isset($_GET['search']) ? trim($_GET['search']) : "";
+
+// Câu SQL lấy người dùng có role = 'user', kèm điều kiện tìm kiếm
+$sql = "SELECT id, Tai_Khoan, Email, role, Ho_Ten, Mat_Khau 
+        FROM user 
+        WHERE role = ?";
+
+if (!empty($search_keyword)) {
+    $sql .= " AND (Tai_Khoan LIKE ? OR Email LIKE ? OR Ho_Ten LIKE ?)";
+}
 
 $stmt = $conn->prepare($sql);
 
-// Gán giá trị 'user' vào câu lệnh WHERE
 $role_filter = 'user';
-$stmt->bind_param("s", $role_filter);
+
+if (!empty($search_keyword)) {
+    $like_keyword = "%" . $search_keyword . "%";
+    $stmt->bind_param("ssss", $role_filter, $like_keyword, $like_keyword, $like_keyword);
+} else {
+    $stmt->bind_param("s", $role_filter);
+}
+
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -41,7 +53,6 @@ $conn->close();
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
-        /* CSS cho phần chính của trang */
         .main-content {
             flex: 1;
             padding: 30px;
@@ -77,11 +88,38 @@ $conn->close();
             text-decoration: none;
         }
 
+        /* Form tìm kiếm */
+        .search-form {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .search-form input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        .search-form button {
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .search-form button:hover {
+            background-color: #2e7dc1;
+        }
+
         .table-responsive {
             overflow-x: auto;
         }
 
-        /* Định dạng bảng */
         .user-table {
             width: 100%;
             border-collapse: collapse;
@@ -99,7 +137,7 @@ $conn->close();
 
         .user-table thead th {
             background-color: #343a40;
-            color: #ffffffff;
+            color: #fff;
             font-weight: 600;
         }
 
@@ -125,11 +163,6 @@ $conn->close();
             color: white;
         }
 
-        .edit-btn {
-            background-color: #f39c12;
-            color: white;
-        }
-
         .delete-btn {
             background-color: #e74c3c;
             color: white;
@@ -139,67 +172,65 @@ $conn->close();
 
 <body>
     <div class="container">
-        <?php include 'sidebar.php'; ?>
+        <?php include 'sidebar_admin.php'; ?>
         <div class="main-content">
             <div class="user-management-container">
                 <h2>Quản Lý Tài Khoản Khách Hàng</h2>
 
-                <?php
-                // Kiểm tra nếu quyền hạn là 'superadmin' thì mới hiển thị nút Cấp quyền
-                if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin'):
-                ?>
+                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin'): ?>
                     <a class="btn update-admin" href="cap_quyen_admin.php">+ Cấp quyền admin</a>
                 <?php endif; ?>
 
+                <!-- Thanh tìm kiếm -->
+                <form class="search-form" method="get" action="">
+                    <input type="text" name="search" placeholder="Tìm theo tên, tài khoản hoặc email..." value="<?php echo htmlspecialchars($search_keyword); ?>">
+                    <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm</button>
+                </form>
+
                 <div class="table-responsive">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tên đăng nhập</th>
+                                <th>Họ Tên</th>
+                                <th>Email</th>
+                                <th>Quyền hạn</th>
+                                <th>Mật khẩu</th>
+                                <th>Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($users)): ?>
+                                <?php foreach ($users as $user): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($user['id']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['Tai_Khoan']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['Ho_Ten']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['Email']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['role']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['Mat_Khau']); ?></td>
+                                        <td class="action-buttons">
+                                            <button class="view-btn" onclick="window.location.href='view_user_admin.php?id=<?php echo $user['id']; ?>'">
+                                                <i class="fa-solid fa-eye"></i> Xem
+                                            </button>
+                                            <button class="delete-btn" data-user-id="<?php echo htmlspecialchars($user['id']); ?>"><i class="fa-solid fa-trash"></i> Xóa</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7">Không tìm thấy người dùng nào.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Tên đăng nhập</th>
-                        <th>Họ Tên</th>
-                        <th>Email</th>
-                        <th>Quyền hạn</th>
-                        <th>Mật khẩu</th>
-                        <th>Hành động</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (!empty($users)): ?>
-                        <?php foreach ($users as $user): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($user['id']); ?></td>
-                                <td><?php echo htmlspecialchars($user['Tai_Khoan']); ?></td>
-                                <td><?php echo htmlspecialchars($user['Ho_Ten']); ?></td>
-                                <td><?php echo htmlspecialchars($user['Email']); ?></td>
-                                <td><?php echo htmlspecialchars($user['role']); ?></td>
-                                <td class="password-cell">
-                                    <?php
-                                    // Hiển thị mật khẩu (chỉ nên dùng trong môi trường thử nghiệm!)
-                                    echo htmlspecialchars($user['Mat_Khau']);
-                                    ?>
-                                </td>
-                                <td class="action-buttons">
-                                    <button class="view-btn"><i class="fa-solid fa-eye"></i> Xem</button>
-                                    <button class="delete-btn" data-user-id="<?php echo htmlspecialchars($user['id']); ?>"><i class="fa-solid fa-trash"></i> Xóa</button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="7">Không có người dùng nào được tìm thấy.</td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
         </div>
     </div>
-    </div>
-    </div>
+
     <script>
-        // Thêm vào cuối file user_management.php, trước thẻ </body>
         document.addEventListener('DOMContentLoaded', function() {
             const deleteButtons = document.querySelectorAll('.delete-btn');
 
@@ -209,7 +240,6 @@ $conn->close();
                     const confirmDelete = confirm('Bạn có chắc chắn muốn xóa người dùng này?');
 
                     if (confirmDelete) {
-                        // Gửi yêu cầu AJAX hoặc chuyển hướng để xử lý xóa
                         window.location.href = 'delete_user_admin.php?id=' + userId;
                     }
                 });

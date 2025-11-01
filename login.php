@@ -6,204 +6,114 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$error = ''; // Biến PHP để lưu thông báo lỗi
-$success = ''; // Biến PHP để lưu thông báo thành công (nếu có)
-$taikhoandangnhap = ''; // Biến để giữ lại tên đăng nhập khi có lỗi
-
-// Xử lý thông báo đăng ký thành công (từ register.php)
-if (isset($_SESSION['register_success'])) {
-    $success = 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.';
-    unset($_SESSION['register_success']);
-}
+$message = "";
+$alert_type = ""; // success | danger | warning
 
 if (isset($_POST['dang_nhap'])) {
-    $taikhoandangnhap = trim($_POST['username'] ?? '');
-    $matkhaudangnhap = $_POST['password'] ?? '';
-
+    $taikhoandangnhap = $_POST['username'];
+    $matkhaudangnhap = $_POST['password'];
 
     if (check_exist_account($taikhoandangnhap)) {
         if (check_dang_nhap($taikhoandangnhap, $matkhaudangnhap)) {
-            // Đăng nhập thành công
             $a = lay_tai_khoan($taikhoandangnhap, $matkhaudangnhap);
-
-            // Lưu vào session
+            $_SESSION['user_id'] = $a['id'];
             $_SESSION['tk'] = $taikhoandangnhap;
             $_SESSION['role'] = $a['role'];
 
-            // Phân quyền điều hướng
             if ($a['role'] === 'admin' || $a['role'] === 'superadmin') {
-                header('Location: admin.php'); // Chuyển đến dashboard admin
+                header("Location: thong_ke.php");
             } else {
-                header('Location: maincustomer.php'); // Người dùng bình thường
+                header("Location: maincustomer.php");
             }
             exit;
         } else {
-            // SỬA LỖI HIỂN THỊ: Gán thông báo lỗi vào biến $error
-            $error = 'Bạn đã sai tên tài khoản hoặc mật khẩu.';
+            $message = "❌ Sai mật khẩu. Vui lòng thử lại!";
+            $alert_type = "danger";
         }
     } else {
-        // SỬA LỖI HIỂN THỊ: Gán thông báo lỗi vào biến $error
-        $error = 'Tên tài khoản chưa được đăng kí.';
+        $message = "⚠️ Tên tài khoản chưa được đăng ký. Hãy tạo tài khoản mới!";
+        $alert_type = "warning";
     }
 }
-// Giữ lại tên đăng nhập khi có lỗi
-$input_username = $taikhoandangnhap;
 ?>
 
-
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 
 <head>
     <meta charset="UTF-8">
     <title>Đăng nhập</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: url('../img/background.jpg');
-            background-size: cover;
-            background-position: center center;
             min-height: 100vh;
-            margin: 0;
+            background: url('../img/background.jpg') no-repeat center center;
+            background-size: cover;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .login-container {
-            width: 400px;
-            padding: 30px 40px;
-            background: #fff;
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        h2 {
-            text-align: center;
-            color: #1877f2;
-            margin-bottom: 25px;
-            font-size: 1.8rem;
-            font-weight: bold;
-        }
-
-        label {
-            display: none;
-        }
-
-        /* Đồng bộ input field */
-        input[type="text"],
-        input[type="password"] {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
             width: 100%;
-            padding: 12px 15px;
-            margin: 8px 0 15px 0;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            background: #fff;
-            font-size: 1rem;
-            transition: border-color 0.3s, box-shadow 0.3s;
+            max-width: 400px;
+            position: relative;
         }
 
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            border-color: #1877f2;
-            outline: none;
-            box-shadow: 0 0 0 1px #1877f2;
-        }
-
-        /* Đồng bộ nút Đăng nhập */
-        input[type="submit"] {
-            width: 100%;
-            padding: 14px;
-            background: #1877f2;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            font-weight: bold;
-            transition: background 0.2s;
-            margin-top: 10px;
-        }
-
-        input[type="submit"]:hover {
-            background: #156ad4;
-        }
-
-        /* Đồng bộ link Đăng ký */
-        .register-link {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 0.95rem;
-            color: #555;
-            padding-top: 15px;
-            border-top: 1px solid #f0f0f0;
-        }
-
-        .register-link a {
-            color: #42b72a;
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        /* Styles cho thông báo LỖI và THÀNH CÔNG */
-        .message-error,
-        .message-success {
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            text-align: left;
-        }
-
-        .message-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .message-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .fade-out {
+            transition: opacity 1s ease-out;
+            opacity: 0;
         }
     </style>
 </head>
 
 <body>
-    <div class="login-container">
-        <h2>Đăng nhập</h2>
+    <div class="login-card">
+        <h3 class="text-center mb-4">Đăng nhập</h3>
 
-        <?php if ($success): ?>
-            <div class="message-success"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success); ?></div>
-        <?php endif; ?>
-
-        <?php if ($error): ?>
-            <div class="message-error"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?></div>
+        <?php if (!empty($message)) : ?>
+            <div id="alertBox" class="alert alert-<?php echo $alert_type; ?> text-center" role="alert">
+                <?php echo $message; ?>
+            </div>
         <?php endif; ?>
 
         <form method="post" action="">
-            <label for="username">Tên đăng nhập:</label>
-            <input type="text" id="username" name="username"
-                value="<?php echo htmlspecialchars($input_username); ?>"
-                placeholder="Tên đăng nhập" required>
-
-            <label for="password">Mật khẩu:</label>
-            <input type="password" id="password" name="password" placeholder="Mật khẩu" required>
-
-            <input type="submit" value="Đăng nhập" name="dang_nhap">
+            <div class="mb-3">
+                <label for="username" class="form-label">Tên đăng nhập</label>
+                <input type="text" id="username" name="username" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Mật khẩu</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <div class="d-grid">
+                <button type="submit" name="dang_nhap" class="btn btn-primary">Đăng nhập</button>
+            </div>
         </form>
-        <div class="register-link">
-            Nếu chưa có tài khoản, hãy
-            <a href="register.php">Đăng kí ngay</a>
+
+        <div class="text-center mt-3">
+            <p><a href="forgot_password.php" class="link-primary">Quên mật khẩu?</a></p>
+            <p>Chưa có tài khoản? <a href="register.php" class="link-success">Đăng kí ngay</a></p>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 🕓 Tự động ẩn thông báo sau 3 giây
+        document.addEventListener("DOMContentLoaded", function() {
+            const alertBox = document.getElementById("alertBox");
+            if (alertBox) {
+                setTimeout(() => {
+                    alertBox.classList.add("fade-out");
+                    setTimeout(() => alertBox.style.display = "none", 1000);
+                }, 3000);
+            }
+        });
+    </script>
 </body>
 
 </html>

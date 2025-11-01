@@ -17,6 +17,7 @@ if (!isset($_SESSION['tk'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống cửa hàng Clothix</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
     <style>
@@ -28,6 +29,13 @@ if (!isset($_SESSION['tk'])) {
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
             animation: fadeInUp 1s ease forwards;
+        }
+
+        .navbar-menu a ::after,
+        .dropdown-toggle::after {
+            content: none !important;
+            border: none !important;
+            display: none !important;
         }
 
         /* ===== BREADCRUMB ===== */

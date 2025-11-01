@@ -3,7 +3,7 @@
     <div class="footer-content">
         <!-- Cột 1: Logo + mô tả -->
         <div class="footer-section">
-            <img src="../Img/Clothix.jpg" alt="Clothix" class="footer-logo">
+            <img src="../Img/Logo.png" alt="Clothix" class="footer-logo">
             <p class="footer-desc">Mang đến cảm hứng thời trang mỗi ngày cho giới trẻ Việt.</p>
         </div>
 

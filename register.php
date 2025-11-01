@@ -34,9 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($result_check->num_rows > 0) {
             $error = 'Tên đăng nhập hoặc Email đã được sử dụng.';
         } else {
-            // 3. LƯU MẬT KHẨU VÀO CSDL 
-
-            // XÓA BỎ HÀM password_hash()
             $matkhau_de_luu = $matkhau; // LƯU TRỰC TIẾP MẬT KHẨU THÔ
 
             $ngay_tao = date('Y-m-d H:i:s');
@@ -51,10 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt_insert->bind_param("ssssss", $taikhoan, $matkhau_de_luu, $email, $role, $ngay_tao, $ho_ten_default);
 
             if ($stmt_insert->execute()) {
-                // Đăng ký thành công, chuyển hướng về trang Đăng nhập
-                $_SESSION['register_success'] = true;
-                header("Location: login.php");
-                exit();
+                $success = "Đăng ký tài khoản thành công!";
+                // Xóa dữ liệu form sau khi đăng ký thành công
+                $form_data = [];
             } else {
                 $error = 'Có lỗi xảy ra trong quá trình đăng ký: ' . $conn->error;
             }
@@ -193,6 +189,18 @@ $conn->close();
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
+        .message-success {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            text-align: left;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
     </style>
 </head>
 
@@ -200,6 +208,13 @@ $conn->close();
     <div class="page-container">
         <div class="register-container">
             <h2>Đăng Ký Tài Khoản</h2>
+            <?php if (!empty($success)): ?>
+                <div class="message-success">
+                    <i class="fas fa-check-circle"></i>
+                    <?php echo $success; ?>
+                </div>
+            <?php endif; ?>
+
 
             <?php if ($error): ?>
                 <div class="message-error"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?></div>

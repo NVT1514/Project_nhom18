@@ -1,6 +1,11 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('admin_session');
+    session_start();
+}
 include "Database/connectdb.php";
 include "Database/function.php";
+
 
 // Xử lý thêm sản phẩm
 if (isset($_POST['them_san_pham'])) {
@@ -9,13 +14,14 @@ if (isset($_POST['them_san_pham'])) {
     $mo_ta         = $_POST['mo_ta'];
     $phan_loai     = $_POST['phan_loai'];
     $loai_chinh    = $_POST['loai_chinh'];
+    $so_luong      = $_POST['so_luong']; // ✅ Thêm số lượng
     $hinh_anh      = $_FILES['hinh_anh'];
 
     // Thêm sản phẩm (có kiểm tra phân loại hợp lệ trong function)
-    $ket_qua = them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh);
+    $ket_qua = them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong);
 
     if ($ket_qua === true) {
-        echo "<script>alert('✅ Thêm sản phẩm thành công!'); window.location.href='ds_sanpham.php';</script>";
+        echo "<script>alert('✅ Thêm sản phẩm thành công!'); window.location.href='khohang.php';</script>";
         exit;
     } else {
         echo "<div class='alert alert-danger text-center'>$ket_qua</div>";
@@ -76,7 +82,6 @@ if (isset($_POST['them_san_pham'])) {
             }
         }
 
-        /* Đảm bảo phần nút không đè nội dung */
         .form-header {
             display: flex;
             justify-content: space-between;
@@ -89,7 +94,6 @@ if (isset($_POST['them_san_pham'])) {
             margin: 0;
         }
 
-        /* Nút danh sách sản phẩm căn phải và cách tiêu đề 10px */
         .btn-list {
             display: inline-block;
             background-color: #198754;
@@ -172,13 +176,13 @@ if (isset($_POST['them_san_pham'])) {
 
 <body>
     <div class="container">
-        <?php include 'sidebar.php'; ?>
+        <?php include 'sidebar_admin.php'; ?>
 
         <main class="main-content">
             <div class="form-container">
                 <div class="form-header">
                     <h2><i class="fa-solid fa-shirt"></i> Thêm sản phẩm mới</h2>
-                    <a href="ds_sanpham.php" class="btn-list"><i class="fa-solid fa-list"></i> Danh sách sản phẩm</a>
+                    <a href="ds_sanpham_admin.php" class="btn-list"><i class="fa-solid fa-list"></i> Danh sách sản phẩm</a>
                 </div>
 
                 <form action="" method="POST" enctype="multipart/form-data">
@@ -187,6 +191,9 @@ if (isset($_POST['them_san_pham'])) {
 
                     <label for="gia">Giá (VNĐ)</label>
                     <input type="number" id="gia" name="gia" step="0.01" required>
+
+                    <label for="so_luong">Số lượng sản phẩm</label>
+                    <input type="number" id="so_luong" name="so_luong" min="1" required> <!-- ✅ Thêm input số lượng -->
 
                     <label for="mo_ta">Mô tả</label>
                     <textarea id="mo_ta" name="mo_ta"></textarea>
