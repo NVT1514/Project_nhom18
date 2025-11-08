@@ -1,11 +1,22 @@
 <?php
+// PHP logic đã được sửa và tối ưu bảo mật (xử lý NULL, kiểm tra trùng lặp, logic update)
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('admin_session');
     session_start();
 }
+// Giả định "Database/connectdb.php" đã kết nối $conn
 include "Database/connectdb.php";
 
 $message = "";
+
+// --- Lấy danh sách danh mục cha (Cấp 1) để điền vào Select Box ---
+$parent_categories = [];
+$sql_parent = "SELECT id, ten_phan_loai FROM phan_loai_san_pham WHERE parent_id IS NULL AND trang_thai = 'Đang sử dụng' ORDER BY ten_phan_loai ASC";
+$result_parent = $conn->query($sql_parent);
+if ($result_parent) {
+    while ($row = $result_parent->fetch_assoc()) {
+        $parent_categories[] = $row;
+    }
+}
 
 // --- Xử lý thêm mới ---
 if (isset($_POST['add'])) {
@@ -13,6 +24,7 @@ if (isset($_POST['add'])) {
     $mo_ta = trim($_POST['mo_ta']);
     $loai_chinh = $_POST['loai_chinh'] ?? 'Khác';
     $trang_thai = $_POST['trang_thai'] ?? 'Đang sử dụng';
+    $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : NULL;
 
     if ($ten != "") {
         $check = $conn->prepare("SELECT id FROM phan_loai_san_pham WHERE ten_phan_loai = ?");
@@ -23,13 +35,27 @@ if (isset($_POST['add'])) {
         if ($check->num_rows > 0) {
             $message = "⚠️ Phân loại '$ten' đã tồn tại!";
         } else {
-            $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai)
-                VALUES (?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssss", $ten, $mo_ta, $loai_chinh, $trang_thai);
-            $stmt->execute();
-            $message = "✅ Thêm phân loại thành công!";
+            // Xử lý Prepared Statement cho NULL (đã sửa)
+            if ($parent_id === NULL) {
+                $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai, parent_id)
+                        VALUES (?, ?, ?, ?, NULL)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("ssss", $ten, $mo_ta, $loai_chinh, $trang_thai);
+            } else {
+                $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai, parent_id)
+                        VALUES (?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("ssssi", $ten, $mo_ta, $loai_chinh, $trang_thai, $parent_id);
+            }
+
+            if ($stmt->execute()) {
+                $message = "✅ Thêm phân loại thành công!";
+            } else {
+                $message = "❌ Lỗi: " . $stmt->error;
+            }
+            $stmt->close();
         }
+        $check->close();
     } else {
         $message = "⚠️ Tên phân loại không được để trống!";
     }
@@ -37,17 +63,34 @@ if (isset($_POST['add'])) {
 
 // --- Xử lý cập nhật ---
 if (isset($_POST['update'])) {
-    $id = $_POST['id'];
+    $id = (int)$_POST['id'];
     $ten = trim($_POST['ten_phan_loai']);
     $mo_ta = trim($_POST['mo_ta']);
     $loai_chinh = $_POST['loai_chinh'];
     $trang_thai = $_POST['trang_thai'];
+    $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : NULL;
 
-    $sql = "UPDATE phan_loai_san_pham SET ten_phan_loai=?, mo_ta=?, loai_chinh=?, trang_thai=? WHERE id=?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssssi", $ten, $mo_ta, $loai_chinh, $trang_thai, $id);
-    $stmt->execute();
-    $message = "✅ Cập nhật phân loại thành công!";
+    if ($parent_id !== NULL && $parent_id == $id) {
+        $message = "❌ Lỗi: Danh mục không thể làm Cha của chính nó!";
+    } else {
+        // Xử lý Prepared Statement cho NULL (đã sửa)
+        if ($parent_id === NULL) {
+            $sql = "UPDATE phan_loai_san_pham SET ten_phan_loai=?, mo_ta=?, loai_chinh=?, trang_thai=?, parent_id=NULL WHERE id=?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ssssi", $ten, $mo_ta, $loai_chinh, $trang_thai, $id);
+        } else {
+            $sql = "UPDATE phan_loai_san_pham SET ten_phan_loai=?, mo_ta=?, loai_chinh=?, trang_thai=?, parent_id=? WHERE id=?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("ssssii", $ten, $mo_ta, $loai_chinh, $trang_thai, $parent_id, $id);
+        }
+
+        if ($stmt->execute()) {
+            $message = "✅ Cập nhật phân loại thành công!";
+        } else {
+            $message = "❌ Lỗi: " . $stmt->error;
+        }
+        $stmt->close();
+    }
 }
 
 // --- Xử lý xóa ---
@@ -56,35 +99,56 @@ if (isset($_GET['delete'])) {
     $sql = "DELETE FROM phan_loai_san_pham WHERE id=?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $message = "🗑️ Đã xóa phân loại thành công!";
+
+    if ($stmt->execute()) {
+        $message = "🗑️ Đã xóa phân loại thành công!";
+    } else {
+        $message = "❌ Lỗi: " . $stmt->error . " (Kiểm tra khóa ngoại với bảng sản phẩm.)";
+    }
+    $stmt->close();
 }
 
-// --- TÌM KIẾM THEO TÊN & LOẠI CHÍNH ---
+// --- TÌM KIẾM, LỌC & LẤY DỮ LIỆU DANH SÁCH ---
 $search = $_GET['search'] ?? '';
 $filter_loai = $_GET['filter_loai'] ?? '';
+$filter_parent = $_GET['filter_parent'] ?? '';
 
-$sql = "SELECT * FROM phan_loai_san_pham WHERE 1=1";
+$sql = "SELECT p.*, parent.ten_phan_loai AS parent_name
+        FROM phan_loai_san_pham p
+        LEFT JOIN phan_loai_san_pham parent ON p.parent_id = parent.id
+        WHERE 1=1";
+
+$types = "";
+$params = [];
 
 if (!empty($search)) {
-    $sql .= " AND ten_phan_loai LIKE ?";
+    $sql .= " AND p.ten_phan_loai LIKE ?";
+    $types .= "s";
+    $params[] = "%" . $search . "%";
 }
 if (!empty($filter_loai)) {
-    $sql .= " AND loai_chinh = ?";
+    $sql .= " AND p.loai_chinh = ?";
+    $types .= "s";
+    $params[] = $filter_loai;
+}
+// Xử lý lọc theo Parent ID (bao gồm cả NULL)
+if (!empty($filter_parent)) {
+    if ($filter_parent === 'NULL') {
+        $sql .= " AND p.parent_id IS NULL";
+    } else {
+        $sql .= " AND p.parent_id = ?";
+        $types .= "i";
+        $params[] = (int)$filter_parent;
+    }
 }
 
-$sql .= " ORDER BY ngay_tao DESC";
+$sql .= " ORDER BY p.parent_id ASC, p.ten_phan_loai ASC";
 
 $stmt = $conn->prepare($sql);
 
-if (!empty($search) && !empty($filter_loai)) {
-    $param1 = "%" . $search . "%";
-    $stmt->bind_param("ss", $param1, $filter_loai);
-} elseif (!empty($search)) {
-    $param1 = "%" . $search . "%";
-    $stmt->bind_param("s", $param1);
-} elseif (!empty($filter_loai)) {
-    $stmt->bind_param("s", $filter_loai);
+if (!empty($types)) {
+    // Sử dụng splat operator để bind_param với mảng tham số
+    $stmt->bind_param($types, ...$params);
 }
 
 $stmt->execute();
@@ -99,194 +163,319 @@ $result = $stmt->get_result();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <style>
+        /* ======================================== */
+        /* === 1. THIẾT LẬP CHUNG VÀ BỐ CỤC MAIN === */
+        /* ======================================== */
+        :root {
+            --primary-color: #007bff;
+            /* Xanh dương */
+            --success-color: #28a745;
+            /* Xanh lá */
+            --danger-color: #dc3545;
+            /* Đỏ */
+            --secondary-color: #6c757d;
+            /* Xám */
+            --bg-light: #f8f9fa;
+            --border-color: #dee2e6;
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-light);
+        }
+
         .main-content {
-            flex: 1;
-            padding: 20px 40px;
-            background: #f5f6fa;
-            min-height: 100vh;
+            padding: 20px 30px;
+            /* Giả sử sidebar đã thiết lập container/main-content */
         }
 
         h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        .message {
-            background: #e3f7df;
-            border-left: 5px solid #4caf50;
-            padding: 10px;
+            color: #343a40;
             margin-bottom: 20px;
-            font-size: 15px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
         }
 
+        /* ======================================== */
+        /* === 2. THÔNG BÁO MESSAGE === */
+        /* ======================================== */
+        .message {
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #fff3cd;
+            /* Vàng nhạt */
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+
+        /* Tùy chỉnh màu sắc cho thông báo thành công (nếu có) */
+        .message[class*="✅"] {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        /* Tùy chỉnh màu sắc cho thông báo lỗi (nếu có) */
+        .message[class*="❌"] {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        /* ======================================== */
+        /* === 3. FORM THÊM/SỬA === */
+        /* ======================================== */
         form {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            margin-bottom: 25px;
             background: #fff;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: var(--box-shadow);
+            margin-bottom: 30px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            /* Tăng khoảng cách giữa các cột */
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .form-row>* {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
         }
 
         input[type="text"],
         textarea,
         select {
-            padding: 8px;
+            padding: 10px;
             border-radius: 6px;
-            border: 1px solid #ccc;
-            width: calc(25% - 10px);
+            border: 1px solid #ced4da;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
         }
 
         textarea {
-            height: 17px;
+            height: 80px;
+            /* Tăng chiều cao textarea */
+            resize: vertical;
         }
 
-        button {
-            background: #2196f3;
-            color: white;
+        /* Nút hành động trong form */
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            /* Đẩy các nút sang phải */
+            margin-top: 20px;
+        }
+
+        .action-buttons button,
+        .action-buttons #btn-cancel {
+            padding: 10px 20px;
             border: none;
-            padding: 8px 15px;
             border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s, transform 0.1s;
         }
 
-        button:hover {
-            background: #0d8bf2;
+        #btn-add {
+            background: var(--primary-color);
+            color: white;
         }
 
+        #btn-add:hover {
+            background: #0056b3;
+        }
+
+        #btn-update {
+            background: var(--success-color);
+            color: white;
+        }
+
+        #btn-update:hover {
+            background: #1e7e34;
+        }
+
+        #btn-cancel {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        #btn-cancel:hover {
+            background: #5a6268;
+        }
+
+        /* ======================================== */
+        /* === 4. THANH TÌM KIẾM VÀ LỌC === */
+        /* ======================================== */
+        .search-form {
+            background: var(--bg-light);
+            padding: 15px 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-group input[type="text"],
+        .search-group select {
+            padding: 9px;
+            width: auto;
+            flex-grow: 1;
+            /* Cho phép input tìm kiếm mở rộng hơn */
+        }
+
+        .search-group input[type="text"] {
+            flex-basis: 300px;
+            /* Ưu tiên input tìm kiếm rộng hơn */
+        }
+
+        .search-group button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 9px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .search-group button:hover {
+            background-color: #0056b3;
+        }
+
+        .clear-filter {
+            color: var(--danger-color);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 9px 10px;
+            border-radius: 6px;
+        }
+
+        .clear-filter:hover {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        /* ======================================== */
+        /* === 5. BẢNG DỮ LIỆU TABLE === */
+        /* ======================================== */
         table {
             width: 100%;
             border-collapse: collapse;
             background: #fff;
-            border-radius: 10px;
+            box-shadow: var(--box-shadow);
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            /* Quan trọng để border-radius hoạt động */
+        }
+
+        thead {
+            background-color: var(--primary-color);
+            color: white;
+            text-align: left;
         }
 
         th,
         td {
-            border-bottom: 1px solid #ddd;
-            padding: 12px 10px;
-            text-align: left;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            vertical-align: middle;
         }
 
-        th {
-            background: #2196f3;
-            color: white;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        tbody tr:nth-child(even) {
+            background-color: #f2f2f2;
+            /* Zebra stripe */
         }
 
-        tr:hover {
-            background: #f1f1f1;
+        tbody tr:hover {
+            background-color: #e9ecef;
         }
 
+        /* Hiển thị danh mục con */
+        tbody td:nth-child(2) {
+            /* Cột Tên phân loại */
+            font-weight: 600;
+        }
+
+        /* Cột Danh mục Cha */
+        tbody td:nth-child(3) span {
+            font-size: 0.9em;
+        }
+
+        /* Trạng thái (Status Badge) */
+        .status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        .status.active {
+            background-color: #d4edda;
+            color: var(--success-color);
+        }
+
+        .status.inactive {
+            background-color: #f8d7da;
+            color: var(--danger-color);
+        }
+
+        /* Nút hành động trong bảng */
         .actions a {
-            margin-right: 8px;
             text-decoration: none;
-            color: #2196f3;
-            font-weight: 500;
+            padding: 5px 8px;
+            border-radius: 4px;
+            margin-right: 5px;
+            font-size: 0.9em;
+            transition: opacity 0.2s;
         }
 
         .actions a:hover {
-            text-decoration: underline;
+            opacity: 0.8;
         }
 
-        .status {
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-weight: bold;
+        .actions a.edit {
+            color: var(--primary-color);
         }
 
-        .active {
-            background: #c8e6c9;
-            color: #2e7d32;
+        .actions a.edit:hover {
+            background-color: rgba(0, 123, 255, 0.1);
         }
 
-        .inactive {
-            background: #ffcdd2;
-            color: #c62828;
+        .actions a[href*="delete"] {
+            color: var(--danger-color);
         }
 
-        .container {
-            display: flex;
-            min-height: 100vh;
-            background: #f5f6fa;
-        }
-
-        /* Thanh tìm kiếm full width */
-        .search-bar {
-            margin-bottom: 20px;
-            background: #fff;
-            border-radius: 10px;
-            padding: 15px 20px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Căn chỉnh form tìm kiếm */
-        .search-form {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        /* Gom nhóm các thành phần tìm kiếm */
-        .search-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-        }
-
-        /* Ô nhập và dropdown chiếm toàn chiều rộng hợp lý */
-        .search-group input[type="text"] {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 15px;
-        }
-
-        .search-group select {
-            width: 200px;
-            padding: 10px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 15px;
-            background-color: #fff;
-            appearance: none;
-        }
-
-        /* Nút tìm kiếm */
-        .search-group button {
-            background: #2196f3;
-            color: #fff;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-        }
-
-        .search-group button:hover {
-            background: #0f85e5ff;
-        }
-
-        /* Nút xóa lọc */
-        .clear-filter {
-            color: #555;
-            text-decoration: none;
-            font-size: 15px;
-            white-space: nowrap;
-        }
-
-        .clear-filter:hover {
-            color: #000;
+        .actions a[href*="delete"]:hover {
+            background-color: rgba(220, 53, 69, 0.1);
         }
     </style>
 </head>
@@ -296,56 +485,99 @@ $result = $stmt->get_result();
         <?php include "sidebar_admin.php"; ?>
 
         <div class="main-content">
-            <h1>📦 Quản lý Phân loại Sản phẩm</h1>
+            <h1>📦 Quản lý Phân loại Sản phẩm (Đa cấp)</h1>
 
             <?php if (!empty($message)) echo "<div class='message'>$message</div>"; ?>
 
-            <!-- FORM THÊM / CẬP NHẬT -->
             <form method="POST">
                 <input type="hidden" name="id" id="id">
-                <input type="text" name="ten_phan_loai" id="ten_phan_loai" placeholder="Tên phân loại..." required>
-                <select name="loai_chinh" id="loai_chinh" required>
-                    <option value="Quần">Quần</option>
-                    <option value="Áo">Áo</option>
-                    <option value="Giày">Giày</option>
-                    <option value="Khác" selected>Khác</option>
-                </select>
-                <textarea name="mo_ta" id="mo_ta" placeholder="Mô tả..."></textarea>
-                <select name="trang_thai" id="trang_thai">
-                    <option value="Đang sử dụng">Đang sử dụng</option>
-                    <option value="Ngừng sử dụng">Ngừng sử dụng</option>
-                </select>
-                <button type="submit" name="add" id="btn-add">➕ Thêm mới</button>
-                <button type="submit" name="update" id="btn-update" style="display:none; background:#28a745;">💾 Cập nhật</button>
-                <button type="button" id="btn-cancel" style="display:none; background:#6c757d;">❌ Hủy</button>
+
+                <div class="form-row">
+                    <div class="form-group-triple">
+                        <label for="ten_phan_loai">Tên phân loại <span style="color: red;">*</span></label>
+                        <input type="text" name="ten_phan_loai" id="ten_phan_loai" placeholder="Áo thun, Quần jean..." required>
+                    </div>
+
+                    <div class="form-group-triple">
+                        <label for="parent_id">Danh mục Cha (Cấp 1)</label>
+                        <select name="parent_id" id="parent_id">
+                            <option value="0">-- Là Danh mục CHA --</option>
+                            <?php foreach ($parent_categories as $cat) { ?>
+                                <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['ten_phan_loai']) ?></option>
+                            <?php } ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group-triple">
+                        <label for="loai_chinh">Loại Chính</label>
+                        <select name="loai_chinh" id="loai_chinh" required>
+                            <option value="Quần">Quần</option>
+                            <option value="Áo">Áo</option>
+                            <option value="Giày">Giày</option>
+                            <option value="Khác" selected>Khác</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group-half">
+                        <label for="mo_ta">Mô tả</label>
+                        <textarea name="mo_ta" id="mo_ta" placeholder="Mô tả ngắn về phân loại này..."></textarea>
+                    </div>
+
+                    <div class="form-group-half">
+                        <label for="trang_thai">Trạng thái</label>
+                        <select name="trang_thai" id="trang_thai">
+                            <option value="Đang sử dụng">Đang sử dụng</option>
+                            <option value="Ngừng sử dụng">Ngừng sử dụng</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="btn-group-right">
+                        <button type="submit" name="add" id="btn-add">➕ Thêm mới</button>
+                        <button type="submit" name="update" id="btn-update" style="display:none;">💾 Cập nhật</button>
+                        <button type="button" id="btn-cancel" style="display:none;">❌ Hủy</button>
+                    </div>
+                </div>
             </form>
 
-            <!-- THANH TÌM KIẾM -->
             <div class="search-bar">
                 <form method="GET" class="search-form">
                     <div class="search-group">
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="🔍 Nhập tên phân loại...">
+
+                        <select name="filter_parent">
+                            <option value="">-- Lọc theo Danh mục CHA --</option>
+                            <option value="NULL" <?= $filter_parent === 'NULL' ? 'selected' : '' ?>>-- DANH MỤC CHA (Cấp 1) --</option>
+                            <?php
+                            foreach ($parent_categories as $cat) { ?>
+                                <option value="<?= $cat['id'] ?>" <?= (string)$filter_parent === (string)$cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['ten_phan_loai']) ?></option>
+                            <?php } ?>
+                        </select>
+
                         <select name="filter_loai">
-                            <option value="">-- Tất cả loại --</option>
+                            <option value="">-- Lọc theo Loại Chính --</option>
                             <option value="Quần" <?= $filter_loai == 'Quần' ? 'selected' : '' ?>>Quần</option>
                             <option value="Áo" <?= $filter_loai == 'Áo' ? 'selected' : '' ?>>Áo</option>
                             <option value="Giày" <?= $filter_loai == 'Giày' ? 'selected' : '' ?>>Giày</option>
                             <option value="Khác" <?= $filter_loai == 'Khác' ? 'selected' : '' ?>>Khác</option>
                         </select>
                         <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm</button>
-                        <?php if (!empty($search) || !empty($filter_loai)) { ?>
+                        <?php if (!empty($search) || !empty($filter_loai) || !empty($filter_parent)) { ?>
                             <a href="phanloaisanpham.php" class="clear-filter">❌ Xóa lọc</a>
                         <?php } ?>
                     </div>
                 </form>
             </div>
 
-            <!-- DANH SÁCH -->
             <table>
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Tên phân loại</th>
+                        <th>Danh mục Cha (Cấp 1)</th>
                         <th>Loại chính</th>
                         <th>Mô tả</th>
                         <th>Trạng thái</th>
@@ -356,11 +588,24 @@ $result = $stmt->get_result();
                 <tbody>
                     <?php
                     $stt = 1;
-                    if ($result && mysqli_num_rows($result) > 0) {
-                        while ($row = mysqli_fetch_assoc($result)) { ?>
+                    if ($result && $result->num_rows > 0) {
+                        while ($row = $result->fetch_assoc()) {
+                            // Giá trị data-parent phải là '0' nếu parent_id là NULL để JS chọn đúng option
+                            $data_parent_id = $row['parent_id'] !== NULL ? (string)$row['parent_id'] : '0';
+                    ?>
                             <tr>
                                 <td><?= $stt++ ?></td>
-                                <td><?= htmlspecialchars($row['ten_phan_loai']) ?></td>
+                                <td>
+                                    <?php if (!empty($row['parent_id'])) { ?>
+                                        <i class="fa-solid fa-angle-right" style="margin-right: 5px; color: var(--secondary-color);"></i>
+                                    <?php } ?>
+                                    **<?= htmlspecialchars($row['ten_phan_loai']) ?>**
+                                </td>
+                                <td>
+                                    <?php
+                                    echo $row['parent_name'] ? htmlspecialchars($row['parent_name']) : '<span style="color:#2196f3; font-weight:bold;">-- CHA --</span>';
+                                    ?>
+                                </td>
                                 <td><?= htmlspecialchars($row['loai_chinh']) ?></td>
                                 <td><?= htmlspecialchars($row['mo_ta']) ?></td>
                                 <td>
@@ -368,15 +613,18 @@ $result = $stmt->get_result();
                                         <?= $row['trang_thai'] ?>
                                     </span>
                                 </td>
-                                <td><?= $row['ngay_tao'] ?></td>
+                                <td><?= date('d/m/Y', strtotime($row['ngay_tao'])) ?></td>
                                 <td class="actions">
                                     <a href="#" class="edit"
                                         data-id="<?= $row['id'] ?>"
                                         data-ten="<?= htmlspecialchars($row['ten_phan_loai']) ?>"
                                         data-loai="<?= htmlspecialchars($row['loai_chinh']) ?>"
+                                        data-parent="<?= $data_parent_id ?>"
                                         data-mo_ta="<?= htmlspecialchars($row['mo_ta']) ?>"
-                                        data-trang_thai="<?= $row['trang_thai'] ?>"><i class="fa fa-pen"></i> Sửa</a>
-                                    <a href="?delete=<?= $row['id'] ?>" onclick="return confirm('Xác nhận xóa phân loại này?')">
+                                        data-trang_thai="<?= $row['trang_thai'] ?>">
+                                        <i class="fa fa-pen"></i> Sửa
+                                    </a>
+                                    <a href="?delete=<?= $row['id'] ?>" onclick="return confirm('Xác nhận xóa phân loại này? (Các danh mục con và sản phẩm liên quan có thể bị ảnh hưởng)')">
                                         <i class="fa fa-trash"></i> Xóa
                                     </a>
                                 </td>
@@ -384,7 +632,7 @@ $result = $stmt->get_result();
                         <?php }
                     } else { ?>
                         <tr>
-                            <td colspan="7" style="text-align:center;">Không tìm thấy phân loại nào!</td>
+                            <td colspan="8" style="text-align:center;">Không tìm thấy phân loại nào!</td>
                         </tr>
                     <?php } ?>
                 </tbody>
@@ -397,15 +645,23 @@ $result = $stmt->get_result();
         const cancelBtn = document.getElementById('btn-cancel');
         const addBtn = document.getElementById('btn-add');
         const updateBtn = document.getElementById('btn-update');
+        const parentSelect = document.getElementById('parent_id');
 
         editButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
+                // 1. Đổ dữ liệu vào form
                 document.getElementById('id').value = btn.dataset.id;
                 document.getElementById('ten_phan_loai').value = btn.dataset.ten;
                 document.getElementById('loai_chinh').value = btn.dataset.loai;
                 document.getElementById('mo_ta').value = btn.dataset.mo_ta;
                 document.getElementById('trang_thai').value = btn.dataset.trang_thai;
+
+                // 2. Xử lý Parent ID: parentId sẽ là '0' nếu danh mục là Cấp 1
+                let parentId = btn.dataset.parent;
+                parentSelect.value = parentId;
+
+                // 3. Chuyển đổi trạng thái nút
                 addBtn.style.display = 'none';
                 updateBtn.style.display = 'inline-block';
                 cancelBtn.style.display = 'inline-block';
@@ -413,11 +669,15 @@ $result = $stmt->get_result();
         });
 
         cancelBtn.addEventListener('click', () => {
+            // 1. Reset form
             document.getElementById('id').value = '';
             document.getElementById('ten_phan_loai').value = '';
             document.getElementById('mo_ta').value = '';
             document.getElementById('trang_thai').value = 'Đang sử dụng';
             document.getElementById('loai_chinh').value = 'Khác';
+            parentSelect.value = '0'; // Reset về Cấp CHA
+
+            // 2. Chuyển đổi trạng thái nút
             addBtn.style.display = 'inline-block';
             updateBtn.style.display = 'none';
             cancelBtn.style.display = 'none';

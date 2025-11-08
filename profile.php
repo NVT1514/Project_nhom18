@@ -1,6 +1,6 @@
 <?php
 session_start();
-include __DIR__ . "/Database/connectdb.php";
+include "Database/connectdb.php";
 
 // Kiểm tra đăng nhập
 if (!isset($_SESSION['tk'])) {

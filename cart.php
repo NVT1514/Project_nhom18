@@ -273,7 +273,7 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
 <head>
     <meta charset="UTF-8">
     <title>Thanh toán đơn hàng</title>
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
         /* ================================================= */
@@ -458,7 +458,7 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
         }
 
         .cart-summary h2 span {
-            color: #3498db;
+            color: #0b2096ff;
             font-size: 14px;
             font-weight: 400;
         }
@@ -629,7 +629,7 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
         }
 
         .place-order-btn {
-            background-color: #0b2096ff;
+            background-color: #1a6dcc;
             color: white;
             padding: 15px;
             font-size: 18px;
@@ -732,6 +732,13 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
             font-size: 16px;
             cursor: pointer;
         }
+
+        .navbar-menu a ::after,
+        .dropdown-toggle::after {
+            content: none !important;
+            border: none !important;
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -768,7 +775,7 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
                                     <tr>
                                         <td>
                                             <div class="product-info">
-                                                <img src="<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>">
+                                                <img src="uploads/<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>">
                                                 <div class="product-details">
                                                     <span class="name"><?= htmlspecialchars($item['ten_san_pham']) ?></span>
                                                     <span class="size">Size: <?= htmlspecialchars($item['size']) ?></span>
@@ -850,7 +857,7 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
                     <div class="cart-item-list">
                         <?php foreach ($cart_items as $item): ?>
                             <div class="cart-item">
-                                <img src="<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>">
+                                <img src="uploads/<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>">
                                 <div class="item-details">
                                     <div class="name"><?= htmlspecialchars($item['ten_san_pham']) ?></div>
                                     <div class="qty">x<?= $item['so_luong'] ?> | Size: <?= htmlspecialchars($item['size']) ?></div>

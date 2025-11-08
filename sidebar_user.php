@@ -1,6 +1,5 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('user_session');
     session_start();
 }
 
@@ -53,7 +52,7 @@ $avatar_path = !empty($_SESSION['avatar'])
         </li>
         <li>
             <i class="fa fa-sign-out-alt"></i>
-            <a href="logout.php">Đăng xuất</a>
+            <a href="login.php">Đăng xuất</a>
         </li>
     </ul>
 </div>

@@ -16,7 +16,7 @@ main {
 
 /* FOOTER */
 .footer {
-    background: linear-gradient(180deg, #034a9b 0%, #263445 100%);
+    background: #001F5D;
     /* ĐÃ CHỈNH SỬA: Màu nền đen */
     color: #fff;
     /* ĐÃ CHỈNH SỬA: Màu chữ chung là trắng */
@@ -40,6 +40,7 @@ main {
 .footer-logo {
     width: 180px;
     margin-bottom: 15px;
+    border-radius: 10px;
 }
 
 .footer-desc {
@@ -130,7 +131,7 @@ main {
 .footer-bottom {
     text-align: center;
     margin-top: 40px;
-    border-top: 1px solid #444;
+    border-top: 1px solid #555555;
     /* ĐÃ CHỈNH SỬA: Viền sáng hơn để thấy trên nền đen */
     padding-top: 15px;
     font-size: 14px;

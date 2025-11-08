@@ -227,14 +227,10 @@ function status_text($status)
             }
         }
     </style>
-
-
 </head>
 
 <body>
-
-    <?php include 'header.php'; ?>
-    <?php include 'sidebar.php'; ?>
+    <?php include 'sidebar_user.php'; ?>
 
     <div class="container">
         <h1>🧾 Chi tiết đơn hàng</h1>

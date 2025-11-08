@@ -1,7 +1,6 @@
 <?php
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('admin_session');
     session_start();
 }
 
@@ -32,7 +31,7 @@ $avatar_path = !empty($_SESSION['avatar'])
         <li><i class="fa fa-product-hunt"></i><a href="themsanpham.php">Thêm sản phẩm</a></li>
         <li><i class="fa fa-box"></i><a href="phanloaisanpham.php">Phân loại sản phẩm</a></li>
         <li><i class="fa fa-warehouse"></i><a href="khohang.php">Kho hàng</a></li>
-        <li><i class="fa fa-image"></i><a href="admin_banner.php">Quản lí Banner</a></li>
+        <li><i class="fa fa-image"></i><a href="quan_ly_banner.php">Quản lí Banner</a></li>
         <li><i class="fa fa-tags"></i><a href="admin_voucher.php">Quản lí Voucher</a></li>
         <li><i class="fa fa-sign-out-alt"></i><a href="login.php">Đăng xuất</a></li>
     </ul>

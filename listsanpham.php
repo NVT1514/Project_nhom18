@@ -1,22 +1,100 @@
 <?php
 include "Database/connectdb.php";
 
-// Lấy phân loại sản phẩm (nếu có)
-$phan_loai = isset($_GET['phan_loai']) ? $_GET['phan_loai'] : '';
+// 1. NHẬN CÁC THAM SỐ TỪ URL
+// ⚠️ QUAN TRỌNG: Đã đổi 'category_id' thành 'phan_loai_id' để khớp với header.php
+$phan_loai_id = isset($_GET['phan_loai_id']) ? (int)$_GET['phan_loai_id'] : 0;
+// Thêm tham số 'loai_chinh' để lọc khi người dùng click vào 'Tất cả ÁO'/'Tất cả QUẦN'
+$loai_chinh_url = isset($_GET['loai_chinh']) ? $_GET['loai_chinh'] : '';
 
-// Truy vấn sản phẩm
-if ($phan_loai != '') {
-    $sql = "SELECT * FROM san_pham WHERE phan_loai = '$phan_loai'";
-} else {
-    $sql = "SELECT * FROM san_pham";
+$category_name = "";
+$title_suffix = "";
+
+// 2. XÂY DỰNG TRUY VẤN CƠ SỞ
+$sql = "SELECT sp.*, pl.ten_phan_loai, pl.parent_id, pl.loai_chinh
+        FROM san_pham sp
+        LEFT JOIN phan_loai_san_pham pl ON sp.phan_loai_id = pl.id 
+        WHERE 1=1"; // Bắt đầu bằng điều kiện luôn đúng
+
+$types = "";
+$params = [];
+
+
+// 3. LỌC: LỌC THEO ID DANH MỤC HOẶC DANH MỤC CHA
+if ($phan_loai_id > 0) {
+    // 3a. Lấy thông tin danh mục đang lọc
+    $sql_cat_info = "SELECT id, ten_phan_loai, parent_id, loai_chinh FROM phan_loai_san_pham WHERE id = ?";
+    $stmt_cat_info = $conn->prepare($sql_cat_info);
+    $stmt_cat_info->bind_param("i", $phan_loai_id);
+    $stmt_cat_info->execute();
+    $cat_info_result = $stmt_cat_info->get_result();
+    $cat_info = $cat_info_result->fetch_assoc();
+    $stmt_cat_info->close();
+
+    if ($cat_info) {
+        $category_name = $cat_info['ten_phan_loai'];
+        // Thiết lập tiêu đề hiển thị
+        $title_suffix = htmlspecialchars($category_name);
+
+        // 3b. Xử lý danh mục ĐA CẤP (Cấp 1)
+        // Nếu parent_id là NULL hoặc 0, đây là danh mục cha (Cấp 1), cần lấy sản phẩm của các con
+        if (is_null($cat_info['parent_id']) || $cat_info['parent_id'] == 0) {
+
+            // Lấy tất cả danh mục con (cấp 2/3) của nó
+            $sql_child_ids = "SELECT id FROM phan_loai_san_pham WHERE parent_id = ?";
+            $stmt_child_ids = $conn->prepare($sql_child_ids);
+            $stmt_child_ids->bind_param("i", $phan_loai_id);
+            $stmt_child_ids->execute();
+            $child_ids_result = $stmt_child_ids->get_result();
+
+            $valid_ids = [$phan_loai_id]; // Bao gồm cả ID cha (phòng trường hợp sản phẩm gán thẳng vào Cấp 1)
+            while ($row = $child_ids_result->fetch_assoc()) {
+                $valid_ids[] = $row['id'];
+            }
+            $stmt_child_ids->close();
+
+            // Lọc bằng danh sách ID đã thu thập
+            $placeholders = implode(',', array_fill(0, count($valid_ids), '?'));
+            $sql .= " AND sp.phan_loai_id IN ($placeholders)";
+
+            // Thêm các ID vào params
+            foreach ($valid_ids as $id) {
+                $types .= "i";
+                $params[] = $id;
+            }
+        } else {
+            // Đây là danh mục cấp 2/3, chỉ lọc theo ID này
+            $sql .= " AND sp.phan_loai_id = ?";
+            $types .= "i";
+            $params[] = $phan_loai_id;
+        }
+    }
 }
-$result = mysqli_query($conn, $sql);
-if (!$result) {
-    die("Lỗi truy vấn: " . mysqli_error($conn));
+// 4. LỌC THEO LOẠI CHÍNH (ÁP DỤNG KHI KHÔNG CÓ phan_loai_id, VÍ DỤ: Click "SẢN PHẨM" -> "ÁO" (Tất cả Áo))
+else if (!empty($loai_chinh_url) && $loai_chinh_url != 'Khác') {
+    $sql .= " AND pl.loai_chinh = ?";
+    $types .= "s";
+    $params[] = $loai_chinh_url;
+    $title_suffix = "Tất cả " . htmlspecialchars($loai_chinh_url);
 }
+
+
+// 5. HOÀN THIỆN VÀ THỰC THI TRUY VẤN
+$sql .= " ORDER BY sp.ngay_tao DESC";
+
+$stmt = $conn->prepare($sql);
+
+if (!empty($types)) {
+    // Bind các tham số nếu có
+    $stmt->bind_param($types, ...$params);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+
 
 // =============================
-// 🖼️ LẤY BANNER HIỆN TẠI
+// 🖼️ LẤY BANNER HIỆN TẠI (Giữ nguyên)
 // =============================
 $banner_path = "uploads/banner-sanpham.jpg"; // banner mặc định
 if (file_exists("banner_config.php")) {
@@ -32,10 +110,11 @@ if (!file_exists($banner_path)) {
 
 <!DOCTYPE html>
 <html lang="vi">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <head>
     <meta charset="UTF-8">
-    <title>Sản phẩm</title>
+    <title>Sản phẩm <?php echo $title_suffix ? " - " . htmlspecialchars($title_suffix) : ""; ?></title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -44,7 +123,7 @@ if (!file_exists($banner_path)) {
             padding: 0;
         }
 
-        /* ===== Banner ===== */
+        /* ===== Banner (giữ nguyên) ===== */
         .banner-container {
             position: relative;
             width: 100%;
@@ -90,7 +169,7 @@ if (!file_exists($banner_path)) {
             text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.4);
         }
 
-        /* ===== Danh sách sản phẩm ===== */
+        /* ===== Danh sách sản phẩm (giữ nguyên) ===== */
         h2 {
             text-align: center;
             margin-top: 100px;
@@ -163,44 +242,66 @@ if (!file_exists($banner_path)) {
             pointer-events: none;
             letter-spacing: 1px;
         }
+
+        .navbar-menu a ::after,
+        .dropdown-toggle::after {
+            content: none !important;
+            border: none !important;
+            display: none !important;
+        }
     </style>
 </head>
 
 <body>
     <?php include 'header.php'; ?>
 
-    <!-- Banner -->
     <div class="banner-container">
-        <img src="<?php echo $banner_path; ?>" alt="Banner sản phẩm">
+        <img src="<?php echo htmlspecialchars($banner_path); ?>" alt="Banner sản phẩm">
         <div class="banner-overlay">
             <h1>Chào mừng đến với cửa hàng</h1>
             <p>Khám phá những sản phẩm mới nhất ngay hôm nay!</p>
         </div>
     </div>
 
-    <!-- Danh sách sản phẩm -->
-    <h2>Danh sách sản phẩm <?php echo $phan_loai ? "($phan_loai)" : ""; ?></h2>
-    <div class="product-list">
-        <?php while ($row = mysqli_fetch_assoc($result)) {
-            $img = !empty($row['hinh_anh']) ? "uploads/" . htmlspecialchars($row['hinh_anh']) : "uploads/no-image.png";
-            $ten = !empty($row['ten_san_pham']) ? htmlspecialchars($row['ten_san_pham']) : "Sản phẩm chưa đặt tên";
-            $gia = isset($row['gia']) ? number_format($row['gia'], 0, ',', '.') : "0";
+    <h2>
+        <i class="fa-solid fa-tags"></i> Danh sách sản phẩm
+        <?php
+        // Hiển thị tên phân loại đã được tính toán
+        // Nếu không có lọc, hiển thị "Nổi bật" (hoặc bạn có thể tự thay đổi)
+        echo $title_suffix ? "(" . htmlspecialchars($title_suffix) . ")" : "Nổi bật";
         ?>
-            <div class="product-card" onclick="window.location.href='chitietsanpham.php?id=<?php echo $row['id']; ?>'">
-                <img src="<?php echo $img; ?>" alt="<?php echo $ten; ?>">
-                <?php if (isset($row['hang_ton']) && $row['hang_ton'] <= 0): ?>
-                    <div class="out-of-stock">Hết hàng</div>
-                <?php endif; ?>
-                <div class="product-info">
-                    <h3><?php echo $ten; ?></h3>
-                    <hr>
-                    <p><?php echo $gia; ?> đ</p>
+    </h2>
+    <div class="product-list">
+        <?php
+        if ($result->num_rows > 0) {
+            // Đảm bảo lặp qua tất cả sản phẩm
+            $result->data_seek(0);
+            while ($row = $result->fetch_assoc()) {
+                $img = !empty($row['hinh_anh']) ? "uploads/" . htmlspecialchars($row['hinh_anh']) : "uploads/no-image.png";
+                $ten = !empty($row['ten_san_pham']) ? htmlspecialchars($row['ten_san_pham']) : "Sản phẩm chưa đặt tên";
+                $gia = isset($row['gia']) ? number_format($row['gia'], 0, ',', '.') : "0";
+        ?>
+                <div class="product-card" onclick="window.location.href='chitietsanpham.php?id=<?php echo $row['id']; ?>'">
+                    <img src="<?php echo $img; ?>" alt="<?php echo $ten; ?>">
+                    <?php if (isset($row['hang_ton']) && $row['hang_ton'] <= 0): ?>
+                        <div class="out-of-stock">Hết hàng</div>
+                    <?php endif; ?>
+                    <div class="product-info">
+                        <h3><?php echo $ten; ?></h3>
+                        <hr>
+                        <p><?php echo $gia; ?> đ</p>
+                    </div>
                 </div>
-            </div>
-        <?php } ?>
+        <?php
+            }
+        } else {
+            echo '<p style="text-align: center; grid-column: 1 / -1; padding: 50px;">Không tìm thấy sản phẩm nào trong danh mục này.</p>';
+        }
+        ?>
     </div>
 
     <?php include 'footer.php'; ?>
+    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
 </body>
 
 </html>

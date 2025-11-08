@@ -1,10 +1,9 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('admin_session');
     session_start();
 }
 include "Database/connectdb.php";
-ob_start();
+
 
 // Biến lưu từ khóa tìm kiếm
 $search_keyword = isset($_GET['search']) ? trim($_GET['search']) : "";

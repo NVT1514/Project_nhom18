@@ -1,22 +1,41 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('user_session');
     session_start();
 }
+// Đảm bảo đường dẫn này là chính xác
 include "Database/connectdb.php";
 
+// ================== KIỂM TRA ĐĂNG NHẬP VÀ QUYỀN (Tăng cường bảo vệ) ==================
 
-// ✅ Lấy danh sách đơn hàng của người dùng (bảng orders)
-$sql = "SELECT * FROM don_hang WHERE user_id = ? ORDER BY created_at DESC";
-$stmt = $conn->prepare($sql);
+// 🛑 SỬA LỖI 1: KHỞI TẠO VÀ ÉP KIỂU $user_id MỘT CÁCH NGHIÊM NGẶT
+$user_id = isset($_SESSION['user_id']) ? intval($_SESSION['user_id']) : 0;
+$user_role = $_SESSION['role'] ?? '';
 
-if (!$stmt) {
-    die("Lỗi prepare SQL: " . $conn->error);
+// Nếu user_id không hợp lệ (bằng 0 sau khi ép kiểu) HOẶC không phải là user
+if ($user_id === 0 || $user_role !== 'user') {
+    // Nếu có lỗi, HỦY Session và chuyển hướng đến trang đăng nhập
+    session_unset();
+    session_destroy();
+    echo '<script>alert("Bạn không có quyền truy cập trang này!"); window.location.href = "login.php";</script>';
+    exit(); // Dừng thực thi code ngay lập tức
 }
 
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$orders = $stmt->get_result();
+// Lọc an toàn cho user_id (Bắt buộc dùng mysqli_real_escape_string khi chèn vào string SQL)
+// (Dù đã là số nguyên nhưng vẫn làm để đảm bảo an toàn tối đa cho câu lệnh)
+$safe_user_id = mysqli_real_escape_string($conn, $user_id);
+
+// ================== TRUY VẤN ĐƠN HÀNG CỦA USER ==================
+
+// 🛑 SỬA LỖI 2: Đảm bảo CÚ PHÁP TRUY VẤN CHỈ THỰC HIỆN KHI CÓ USER ID HỢP LỆ
+$sql = "SELECT * FROM don_hang 
+        WHERE user_id = '$safe_user_id' 
+        ORDER BY created_at DESC";
+
+$orders = mysqli_query($conn, $sql);
+
+if (!$orders) {
+    die("Lỗi truy vấn đơn hàng: " . mysqli_error($conn));
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -216,18 +235,25 @@ $orders = $stmt->get_result();
         ?>
         <h2><i class="fa fa-history"></i> Lịch sử mua hàng</h2>
 
-        <?php if ($orders->num_rows > 0): ?>
-            <?php while ($order = $orders->fetch_assoc()): ?>
+        <?php if (mysqli_num_rows($orders) > 0): ?>
+            <?php while ($order = mysqli_fetch_assoc($orders)): ?>
                 <div class="order-card">
                     <div class="order-header">
                         <p><strong>Mã đơn hàng:</strong> <?= htmlspecialchars($order['order_id']) ?></p>
                         <p><strong>Ngày đặt:</strong> <?= htmlspecialchars($order['created_at']) ?></p>
-                        <p><strong>Phương thức thanh toán:</strong> <?= strtoupper(htmlspecialchars($order['payment_method'])) ?></p>
+                        <p><strong>Phương thức thanh toán:</strong> <?= strtoupper(htmlspecialchars($order['payment_method'])) ?>
+                        </p>
                         <p>
                             <strong>Trạng thái:</strong>
                             <?php
                             $statusText = '';
+                            $class = '';
+                            // 0: Chờ thanh toán (VNPAY/QR), 1: Chờ xác nhận (COD), 2: Hoàn thành
                             switch ($order['status']) {
+                                case 0:
+                                    $statusText = "Chờ thanh toán";
+                                    $class = "chờ";
+                                    break;
                                 case 1:
                                     $statusText = "Chờ xác nhận";
                                     $class = "chờ";
@@ -253,24 +279,26 @@ $orders = $stmt->get_result();
                     <?php
                     // --- Lấy chi tiết sản phẩm + ảnh từ bảng san_pham ---
                     $order_id = intval($order['id']);
+
+                    // Lọc an toàn cho order_id
+                    $safe_order_id = mysqli_real_escape_string($conn, $order_id);
                     $sql_items = "
-                SELECT c.*, s.hinh_anh 
-                FROM chi_tiet_don_hang c
-                JOIN san_pham s ON c.product_id = s.id
-                WHERE c.order_id = ?
-            ";
-                    $stmt_items = $conn->prepare($sql_items);
-                    if (!$stmt_items) {
-                        die("Lỗi prepare SQL (chi_tiet_don_hang): " . $conn->error);
+                        SELECT c.*, s.hinh_anh 
+                        FROM chi_tiet_don_hang c
+                        JOIN san_pham s ON c.product_id = s.id
+                        WHERE c.order_id = '$safe_order_id'
+                    ";
+
+                    $items = mysqli_query($conn, $sql_items);
+
+                    if (!$items) {
+                        die("Lỗi truy vấn chi tiết đơn hàng: " . mysqli_error($conn));
                     }
-                    $stmt_items->bind_param("i", $order_id);
-                    $stmt_items->execute();
-                    $items = $stmt_items->get_result();
                     ?>
 
                     <hr>
 
-                    <table>
+                    <table class="product-table">
                         <thead>
                             <tr>
                                 <th>Ảnh</th>
@@ -282,7 +310,7 @@ $orders = $stmt->get_result();
                             </tr>
                         </thead>
                         <tbody>
-                            <?php while ($item = $items->fetch_assoc()): ?>
+                            <?php while ($item = mysqli_fetch_assoc($items)): ?>
                                 <tr>
                                     <td>
                                         <img src="<?= htmlspecialchars($item['hinh_anh'] ?: 'https://cdn-icons-png.flaticon.com/512/679/679720.png') ?>"

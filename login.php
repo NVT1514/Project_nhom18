@@ -16,9 +16,14 @@ if (isset($_POST['dang_nhap'])) {
     if (check_exist_account($taikhoandangnhap)) {
         if (check_dang_nhap($taikhoandangnhap, $matkhaudangnhap)) {
             $a = lay_tai_khoan($taikhoandangnhap, $matkhaudangnhap);
+
+            // Set Session
             $_SESSION['user_id'] = $a['id'];
             $_SESSION['tk'] = $taikhoandangnhap;
             $_SESSION['role'] = $a['role'];
+
+            // 🛑 SỬA LỖI CỐT LÕI: Buộc PHP ghi dữ liệu Session và đóng file/lock session
+            session_write_close();
 
             if ($a['role'] === 'admin' || $a['role'] === 'superadmin') {
                 header("Location: thong_ke.php");

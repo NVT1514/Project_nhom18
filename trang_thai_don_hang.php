@@ -1,13 +1,18 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('user_session');
     session_start();
 }
 include "Database/connectdb.php";
 
+$user_id = $_SESSION['user_id'] ?? 0;
+// ------------------------------------
+
+// ... Các lệnh SQL truy vấn đơn hàng (sẽ chạy đúng sau khi thêm dòng trên)
+$sql = "SELECT * FROM don_hang WHERE user_id = ? ...";
 
 // Lấy các đơn hàng có status = 1 (chờ giao) hoặc 2 (đã giao)
-$sql = "SELECT * FROM don_hang WHERE user_id = ? AND status IN (1,2) ORDER BY created_at DESC";
+// Lấy các đơn hàng có status = 0 (Chờ thanh toán), 1 (Chờ giao) hoặc 2 (Đã giao)
+$sql = "SELECT * FROM don_hang WHERE user_id = ? AND status IN (0, 1, 2) ORDER BY created_at DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -140,7 +145,10 @@ $result = $stmt->get_result();
                     </tr>
                     <?php while ($row = $result->fetch_assoc()): ?>
                         <?php
-                        if ($row['status'] == 1) {
+                        if ($row['status'] == 0) {
+                            $status_text = 'Chờ thanh toán'; // Hoặc 'Chờ xác nhận thanh toán'
+                            $status_class = 'wait'; // Có thể tạo class màu khác nếu muốn
+                        } elseif ($row['status'] == 1) {
                             $status_text = 'Chờ giao hàng';
                             $status_class = 'wait';
                         } elseif ($row['status'] == 2) {
@@ -156,7 +164,7 @@ $result = $stmt->get_result();
                             <td><?= number_format($row['total'], 0, ',', '.') ?>đ</td>
                             <td><?= date('d/m/Y H:i', strtotime($row['created_at'])) ?></td>
                             <td><span class="status <?= $status_class ?>"><?= $status_text ?></span></td>
-                            <td><a href="/Du_an_nhom_18/chi_tiet_don_hang.php?id=<?= $row['id'] ?>" class="btn">Xem</a></td>
+                            <td><a href="chi_tiet_don_hang.php?id=<?= $row['id'] ?>" class="btn">Xem</a></td>
                         </tr>
                     <?php endwhile; ?>
                 </table>

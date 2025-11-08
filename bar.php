@@ -73,7 +73,7 @@
         </div>
         <div class="bar-feature-content">
             <div class="bar-feature-title">Miễn phí vận chuyển</div>
-            <div class="bar-feature-desc">đơn từ 399K</div>
+            <div class="bar-feature-desc">đơn từ 500K</div>
         </div>
     </div>
     <div class="bar-feature-item">

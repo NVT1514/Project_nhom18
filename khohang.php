@@ -1,6 +1,5 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('admin_session');
     session_start();
 }
 include "Database/connectdb.php";
@@ -138,7 +137,6 @@ if (!$products) die("Lỗi truy vấn sản phẩm: " . mysqli_error($conn));
         main.main-content {
             flex: 1;
             width: 100%;
-            max-width: 1500px;
             padding: 20px;
             box-sizing: border-box;
         }
@@ -177,31 +175,65 @@ if (!$products) die("Lỗi truy vấn sản phẩm: " . mysqli_error($conn));
             background-color: #ffe0e0;
         }
 
+        /* Tùy chỉnh chung cho nút */
         button {
             padding: 6px 12px;
             border: none;
             border-radius: 6px;
+            /* Bo góc nhẹ */
             cursor: pointer;
-            transition: 0.3s;
+            transition: background-color 0.3s, transform 0.1s;
+            /* Thêm hiệu ứng hover */
+            margin: 3px;
+            /* Khoảng cách giữa các nút */
+            white-space: nowrap;
+            /* Tránh bị xuống dòng */
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            /* Hiệu ứng nhấc lên khi hover */
         }
 
         .stock-btn {
+            /* Nút Nhập */
             background: #4a90e2;
+            /* Xanh dương */
             color: white;
+        }
+
+        .stock-btn:hover {
+            background: #3a7bd2;
         }
 
         .out-of-stock {
-            background: #dc3545;
+            /* Nút Xuất */
+            background: #ff7f50;
+            /* Cam/Đỏ nhạt */
             color: white;
         }
 
+        .out-of-stock:hover {
+            background: #e56a40;
+        }
+
         .view-history {
+            /* Nút Lịch sử */
             background: #28a745;
+            /* Xanh lá cây */
             color: white;
+            /* Giữ nguyên màu xanh lá */
         }
 
         .view-history:hover {
             background: #1f8a3a;
+        }
+
+        .action-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
         }
 
         /* Overlay & Popup */
@@ -336,9 +368,11 @@ if (!$products) die("Lỗi truy vấn sản phẩm: " . mysqli_error($conn));
                             <td><?= $row['so_luong'] > 0 ? "<span style='color:green;font-weight:bold;'>Còn hàng</span>" : "<span style='color:red;font-weight:bold;'>Hết hàng</span>" ?></td>
                             <td><?= $last_update ? date("d/m/Y H:i", strtotime($last_update)) : "–" ?></td>
                             <td>
-                                <button class="stock-btn" onclick="openPopup('in', <?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">Nhập</button>
-                                <button class="out-of-stock" onclick="openPopup('out', <?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">Xuất</button>
-                                <button class="view-history" onclick="showHistory(<?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">📜 Lịch sử</button>
+                                <div class="action-group">
+                                    <button class="stock-btn" onclick="openPopup('in', <?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">📥 Nhập</button>
+                                    <button class="out-of-stock" onclick="openPopup('out', <?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">📤 Xuất</button>
+                                    <button class="view-history" onclick="showHistory(<?= $row['id'] ?>, '<?= htmlspecialchars($row['ten_san_pham']) ?>')">📜 Lịch sử</button>
+                                </div>
                             </td>
                         </tr>
                     <?php endwhile; ?>

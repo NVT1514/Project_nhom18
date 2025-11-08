@@ -1,10 +1,9 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_name('admin_session');
     session_start();
 }
 include "Database/connectdb.php";
-ob_start();
+
 
 // Xử lý cập nhật trạng thái giao hàng thành công
 if (isset($_POST['mark_done'])) {
