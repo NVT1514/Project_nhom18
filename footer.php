@@ -1,5 +1,5 @@
 <footer class="footer">
-    <link rel="stylesheet" href="../css/footer.css">
+    <link rel="stylesheet" href="css/footer.css">
     <div class="footer-content">
         <!-- Cột 1: Logo + mô tả -->
         <div class="footer-section">

@@ -7,16 +7,29 @@ include "Database/connectdb.php";
 
 // Xử lý cập nhật trạng thái giao hàng thành công
 if (isset($_POST['mark_done'])) {
-    $order_id = intval($_POST['order_id']);
-    $update_sql = "UPDATE don_hang SET status = 2 WHERE id = ?";
-    $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("i", $order_id);
-    $stmt->execute();
-    $stmt->close();
+    // Đảm bảo rằng order_id được truyền và là số nguyên hợp lệ
+    $order_id = filter_var($_POST['order_id'], FILTER_SANITIZE_NUMBER_INT);
+    if ($order_id) {
+        // Cập nhật trạng thái thành 2 (Giao hàng thành công)
+        $update_sql = "UPDATE don_hang SET status = 2 WHERE id = ?";
+        $stmt = $conn->prepare($update_sql);
+        $stmt->bind_param("i", $order_id);
+
+        // Kiểm tra xem lệnh đã thực thi thành công hay chưa (tùy chọn)
+        // if ($stmt->execute()) {
+        //     // Có thể thêm mã để xử lý thành công ở đây (ví dụ: chuyển hướng hoặc thông báo)
+        // } else {
+        //     // Xử lý lỗi
+        // }
+
+        $stmt->execute();
+        $stmt->close();
+    }
 }
 
 // Lấy danh sách đơn hàng
-$sql = "SELECT * FROM don_hang ORDER BY created_at DESC";
+// Chỉ lấy các trường cần thiết, thêm trường 'id' (cần cho hành động) và 'order_id' (mã đơn)
+$sql = "SELECT id, order_id, status FROM don_hang ORDER BY created_at DESC";
 $result = $conn->query($sql);
 
 
@@ -30,6 +43,7 @@ $result = $conn->query($sql);
     <title>Quản lý đơn hàng</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        /* CSS cho sidebar và bố cục chính vẫn giữ nguyên */
         body {
             font-family: "Segoe UI", sans-serif;
             background: #f6f8fa;
@@ -43,11 +57,14 @@ $result = $conn->query($sql);
         }
 
         .order-container {
-            width: 1300px;
+            /* Giảm bớt chiều rộng vì ít cột hơn, nhưng giữ rộng đủ để bảng không bị hẹp */
+            width: 800px;
             background: #fff;
             border-radius: 12px;
             padding: 25px 30px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            /* Căn giữa container */
+            margin: 0 auto;
         }
 
         h1 {
@@ -56,9 +73,12 @@ $result = $conn->query($sql);
             color: #333;
         }
 
+        /* CSS cho bảng */
         .table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
+            /* Giúp các cột có độ rộng cố định */
         }
 
         .table th,
@@ -67,6 +87,32 @@ $result = $conn->query($sql);
             text-align: center;
             border-bottom: 1px solid #eee;
         }
+
+        /* Cấu hình độ rộng cho các cột mới */
+        .table th:nth-child(1),
+        .table td:nth-child(1) {
+            width: 15%;
+        }
+
+        /* Mã đơn */
+        .table th:nth-child(2),
+        .table td:nth-child(2) {
+            width: 25%;
+        }
+
+        /* Trạng thái */
+        .table th:nth-child(3),
+        .table td:nth-child(3) {
+            width: 25%;
+        }
+
+        /* Xem chi tiết */
+        .table th:nth-child(4),
+        .table td:nth-child(4) {
+            width: 35%;
+        }
+
+        /* Hành động */
 
         .table th {
             background: #007bff;
@@ -77,26 +123,33 @@ $result = $conn->query($sql);
             background: #f9fafc;
         }
 
+        /* CSS cho trạng thái */
         .status {
             padding: 6px 12px;
             border-radius: 6px;
             color: #fff;
             font-weight: 600;
             font-size: 14px;
+            display: inline-block;
+            /* Để status button có padding đẹp hơn */
         }
 
         .status.pending {
             background-color: #ff9800;
+            /* Chờ xác nhận */
         }
 
         .status.shipping {
             background-color: #03a9f4;
+            /* Chờ giao hàng */
         }
 
         .status.done {
             background-color: #4caf50;
+            /* Giao hàng thành công */
         }
 
+        /* CSS cho nút */
         .btn {
             background: #007bff;
             color: #fff;
@@ -106,10 +159,22 @@ $result = $conn->query($sql);
             border: none;
             cursor: pointer;
             transition: 0.3s;
+            font-size: 14px;
+            white-space: nowrap;
+            /* Ngăn nút bị xuống dòng */
+        }
+
+        .btn-detail {
+            background: #6c757d;
+            /* Màu xám cho nút xem chi tiết */
         }
 
         .btn:hover {
             background: #0056b3;
+        }
+
+        .btn-detail:hover {
+            background: #5a6268;
         }
 
         .no-orders {
@@ -132,13 +197,8 @@ $result = $conn->query($sql);
                 <table class="table">
                     <tr>
                         <th>Mã đơn</th>
-                        <th>Tên khách hàng</th>
-                        <th>Địa chỉ</th>
-                        <th>Số điện thoại</th>
-                        <th>Tổng tiền</th>
-                        <th>Phương thức</th>
                         <th>Trạng thái</th>
-                        <th>Ngày đặt</th>
+                        <th>Xem chi tiết</th>
                         <th>Hành động</th>
                     </tr>
 
@@ -147,6 +207,7 @@ $result = $conn->query($sql);
                         $status_text = '';
                         $status_class = '';
 
+                        // Logic chuyển đổi trạng thái (giữ nguyên theo mã cũ)
                         if ($row['status'] == 1) {
                             $status_text = 'Chờ giao hàng';
                             $status_class = 'shipping';
@@ -160,13 +221,13 @@ $result = $conn->query($sql);
                         ?>
                         <tr>
                             <td>#<?= htmlspecialchars($row['order_id']) ?></td>
-                            <td><?= htmlspecialchars($row['fullname']) ?></td>
-                            <td><?= htmlspecialchars($row['address']) ?></td>
-                            <td><?= htmlspecialchars($row['phone']) ?></td>
-                            <td><?= number_format($row['total'], 0, ',', '.') ?>đ</td>
-                            <td><?= strtoupper(htmlspecialchars($row['payment_method'])) ?></td>
+
                             <td><span class="status <?= $status_class ?>"><?= $status_text ?></span></td>
-                            <td><?= date('d/m/Y H:i', strtotime($row['created_at'])) ?></td>
+
+                            <td>
+                                <a href="chi_tiet.php?id=<?= $row['id'] ?>" class="btn btn-detail">Xem chi tiết</a>
+                            </td>
+
                             <td>
                                 <?php if ($row['status'] == 1): ?>
                                     <form method="post" style="display:inline;">

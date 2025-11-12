@@ -13,7 +13,7 @@ $avatar_path = !empty($_SESSION['avatar'])
     : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 ?>
 
-<link rel="stylesheet" href="../css/sidebar.css">
+<link rel="stylesheet" href="css/sidebar.css">
 
 <!-- Sidebar cố định -->
 <div class="sidebar">
@@ -26,13 +26,14 @@ $avatar_path = !empty($_SESSION['avatar'])
 
     <ul class="sidebar-menu">
         <li><i class="fa fa-chart-column"></i><a href="thong_ke.php">Thống kê</a></li>
-        <li><i class="fa fa-users"></i><a href="quanlinguoidung_admin.php">Quản lí người dùng</a></li>
-        <li><i class="fa fa-truck"></i><a href="quan_ly_don_hang.php">Quản lí đơn hàng</a></li>
-        <li><i class="fa fa-product-hunt"></i><a href="themsanpham.php">Thêm sản phẩm</a></li>
-        <li><i class="fa fa-box"></i><a href="phanloaisanpham.php">Phân loại sản phẩm</a></li>
+        <li><i class="fa fa-users"></i><a href="quanlinguoidung_admin.php">Quản lý người dùng</a></li>
+        <li><i class="fa fa-truck"></i><a href="quan_ly_don_hang.php">Quản lý đơn hàng</a></li>
+        <li><i class="fa fa-product-hunt"></i><a href="ds_sanpham_admin.php">Quản lý sản phẩm</a></li>
+        <li><i class="fa fa-box"></i><a href="phanloaisanpham.php">Quản lý danh mục</a></li>
         <li><i class="fa fa-warehouse"></i><a href="khohang.php">Kho hàng</a></li>
         <li><i class="fa fa-image"></i><a href="quan_ly_banner.php">Quản lí Banner</a></li>
         <li><i class="fa fa-tags"></i><a href="admin_voucher.php">Quản lí Voucher</a></li>
+        <li><i class="fa fa-user"></i><a href="maincustomer.php">Trang khách hàng</a></li>
         <li><i class="fa fa-sign-out-alt"></i><a href="login.php">Đăng xuất</a></li>
     </ul>
 </div>

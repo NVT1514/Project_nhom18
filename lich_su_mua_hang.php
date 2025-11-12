@@ -313,7 +313,7 @@ if (!$orders) {
                             <?php while ($item = mysqli_fetch_assoc($items)): ?>
                                 <tr>
                                     <td>
-                                        <img src="<?= htmlspecialchars($item['hinh_anh'] ?: 'https://cdn-icons-png.flaticon.com/512/679/679720.png') ?>"
+                                        <img src="<?= 'uploads/' . htmlspecialchars($item['hinh_anh'] ?: 'https://cdn-icons-png.flaticon.com/512/679/679720.png') ?>"
                                             alt="Ảnh sản phẩm" class="product-img">
                                     </td>
                                     <td><?= htmlspecialchars($item['product_name']) ?></td>

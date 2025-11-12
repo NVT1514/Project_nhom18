@@ -15,6 +15,13 @@ if (isset($_POST['add_voucher'])) {
     $ngay_hh = $_POST['ngay_het_han'];
     $trang_thai = $_POST['trang_thai'];
 
+    // --- Bổ sung: Kiểm tra logic ngày tháng ---
+    if (strtotime($ngay_bd) > strtotime($ngay_hh)) {
+        header("Location: admin_voucher.php?msg=date_error");
+        exit();
+    }
+    // ----------------------------------------
+
     $stmt = $conn->prepare("INSERT INTO vouchers (ma_voucher, mo_ta, giam_phan_tram, gia_tri_toi_da, dieu_kien, ngay_bat_dau, ngay_het_han, trang_thai) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->bind_param("ssidssss", $ma, $mo_ta, $giam, $toi_da, $dieu_kien, $ngay_bd, $ngay_hh, $trang_thai);
@@ -43,6 +50,13 @@ if (isset($_POST['edit_voucher'])) {
     $ngay_bd = $_POST['ngay_bat_dau'];
     $ngay_hh = $_POST['ngay_het_han'];
     $trang_thai = $_POST['trang_thai'];
+
+    // --- Bổ sung: Kiểm tra logic ngày tháng ---
+    if (strtotime($ngay_bd) > strtotime($ngay_hh)) {
+        header("Location: admin_voucher.php?msg=date_error&edit_id=" . $id); // Có thể thêm ID để dễ debug
+        exit();
+    }
+    // ----------------------------------------
 
     $stmt = $conn->prepare("UPDATE vouchers 
         SET ma_voucher=?, mo_ta=?, giam_phan_tram=?, gia_tri_toi_da=?, dieu_kien=?, ngay_bat_dau=?, ngay_het_han=?, trang_thai=? 
@@ -134,16 +148,30 @@ $result = $conn->query("SELECT * FROM vouchers ORDER BY id DESC");
     <div class="main-content">
         <h2 class="mb-4">🧾 Quản lý Voucher</h2>
 
-        <?php if (isset($_GET['msg'])): ?>
-            <div class="alert alert-success text-center">
-                <?php
-                if ($_GET['msg'] == 'added') echo "✅ Thêm voucher thành công!";
-                elseif ($_GET['msg'] == 'updated') echo "✏️ Cập nhật voucher thành công!";
-                elseif ($_GET['msg'] == 'deleted') echo "🗑️ Xóa voucher thành công!";
-                ?>
-            </div>
-        <?php endif; ?>
+        <?php
+        if (isset($_GET['msg'])) {
+            $msg_text = '';
+            $msg_type = 'success'; // Mặc định là thành công (xanh)
 
+            if ($_GET['msg'] == 'added') {
+                $msg_text = "✅ Thêm voucher thành công!";
+            } elseif ($_GET['msg'] == 'updated') {
+                $msg_text = "✏️ Cập nhật voucher thành công!";
+            } elseif ($_GET['msg'] == 'deleted') {
+                $msg_text = "🗑️ Xóa voucher thành công!";
+            } elseif ($_GET['msg'] == 'date_error') {
+                // Lỗi ngày tháng
+                $msg_text = "❌ **LỖI:** Ngày bắt đầu không thể sau Ngày hết hạn! Vui lòng kiểm tra lại.";
+                $msg_type = 'danger'; // Chuyển sang màu đỏ cho thông báo lỗi
+            }
+
+            if (!empty($msg_text)) {
+                echo '<div class="alert alert-' . $msg_type . ' text-center">';
+                echo $msg_text;
+                echo '</div>';
+            }
+        }
+        ?>
         <div class="d-flex justify-content-between mb-3">
             <h5>Danh sách voucher</h5>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">➕ Thêm voucher</button>

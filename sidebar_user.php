@@ -17,7 +17,7 @@ $avatar_path = !empty($_SESSION['avatar'])
 <!-- ========================== -->
 <!-- ✅ CSS -->
 <!-- ========================== -->
-<link rel="stylesheet" href="../css/sidebar_user.css">
+<link rel="stylesheet" href="css/sidebar_user.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
 <!-- ========================== -->
@@ -44,7 +44,7 @@ $avatar_path = !empty($_SESSION['avatar'])
         </li>
         <li>
             <i class="fa fa-box"></i>
-            <a href="trang_thai_don_hang.php">Trạng thái đơn hàng</a>
+            <a href="trang_thai_don_hang.php">Đơn hàng</a>
         </li>
         <li>
             <i class="fa fa-shopping-cart"></i>

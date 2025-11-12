@@ -329,7 +329,7 @@ CREATE TABLE `don_hang` (
 -- 4️⃣c BẢNG GIỎ HÀNG (GIỮ NGUYÊN)
 -- =====================================================
 CREATE TABLE `gio_hang` (
-    `id` int(11) NOT NULL,
+    `id` int(11) NOT NULL AUTO_INCREMENT,
     `user_id` int(11) NOT NULL,
     `san_pham_id` int(11) NOT NULL,
     `size` varchar(10) NOT NULL,
@@ -337,6 +337,14 @@ CREATE TABLE `gio_hang` (
     `ngay_them` datetime DEFAULT current_timestamp(),
     PRIMARY KEY (`id`) -- Đã thêm primary key cho bảng này
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+-- Thêm ràng buộc UNIQUE cho bộ 3 cột user_id, san_pham_id, size
+ALTER TABLE `gio_hang`
+ADD CONSTRAINT `uc_gio_hang_item` UNIQUE (
+    `user_id`,
+    `san_pham_id`,
+    `size`
+);
 
 -- =====================================================
 -- 4️⃣d BẢNG TÀI KHOẢN THANH TOÁN (GIỮ NGUYÊN)

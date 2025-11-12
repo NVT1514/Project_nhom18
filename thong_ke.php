@@ -241,7 +241,7 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
         }
 
         .top-seller tr.top-1::before {
-            content: "🏆 TOP 1";
+            content: "TOP 1";
             position: absolute;
             top: -10px;
             right: 12px;
@@ -286,6 +286,71 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 filter: hue-rotate(0deg);
             }
         }
+
+        /* ==== TOP 2 HIỆU ỨNG NỔI BẬT (Màu Bạc) ==== */
+        .top-seller tr.top-2 {
+            background: linear-gradient(135deg, #f7f7f7, #e0e0e0);
+            border-left: 4px solid silver;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .top-seller tr.top-2 td {
+            font-weight: 550;
+            color: #3f4e60;
+        }
+
+        .top-seller tr.top-2::before {
+            content: "TOP 2";
+            position: absolute;
+            top: -10px;
+            right: 12px;
+            background: silver;
+            color: white;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            box-shadow: 0 0 8px rgba(192, 192, 192, 0.7);
+        }
+
+        /* ==== TOP 3 HIỆU ỨNG NỔI BẬT (Màu Đồng) ==== */
+        .top-seller tr.top-3 {
+            background: linear-gradient(135deg, #fcefe9, #e8d0c2);
+            border-left: 4px solid #b87333;
+            /* Màu đồng */
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .top-seller tr.top-3 td {
+            font-weight: 500;
+            color: #5d4037;
+        }
+
+        .top-seller tr.top-3::before {
+            content: "TOP 3";
+            position: absolute;
+            top: -10px;
+            right: 12px;
+            background: #b87333;
+            /* Màu đồng */
+            color: white;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            box-shadow: 0 0 8px rgba(184, 115, 51, 0.7);
+        }
+
+        /* Thêm hiệu ứng hover chung cho Top 1, 2, 3 để tăng tương tác */
+        .top-seller tr.top-1:hover,
+        .top-seller tr.top-2:hover,
+        .top-seller tr.top-3:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
 
         /* ==== RECENT ORDERS & ACTIVITIES ==== */
         .bottom-section {
@@ -419,7 +484,15 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                             $rank = 0;
                             while ($row = mysqli_fetch_assoc($top_seller)) :
                                 $rank++;
-                                $topClass = ($rank == 1) ? "top-1" : "";
+                                // Gán class CSS dựa trên rank
+                                $topClass = "";
+                                if ($rank == 1) {
+                                    $topClass = "top-1";
+                                } elseif ($rank == 2) {
+                                    $topClass = "top-2";
+                                } elseif ($rank == 3) {
+                                    $topClass = "top-3";
+                                }
                             ?>
                                 <tr class="<?= $topClass; ?>">
                                     <td style="display:flex;align-items:center;gap:10px;">

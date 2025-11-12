@@ -651,13 +651,152 @@ $default_size = 'M (US 8)';
             border: none !important;
             display: none !important;
         }
+
+
+        /* ============================================ */
+        /* 💎 CẬP NHẬT: THÔNG BÁO TOAST/SNACKBAR MỚI */
+        /* ============================================ */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: white;
+            /* Đổi sang màu trắng */
+            color: #333;
+            padding: 0;
+            /* Bỏ padding ngoài để kiểm soát nội dung bên trong */
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(100%);
+            /* Bắt đầu từ ngoài màn hình */
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* Hiệu ứng pop-out */
+            width: 350px;
+            /* Chiều rộng cố định */
+            overflow: hidden;
+        }
+
+        .toast-notification.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+        }
+
+        /* Phần tiêu đề thông báo (Màu xanh lá) */
+        .toast-header {
+            background-color: #D4EDDA;
+            /* Màu xanh nền */
+            color: #155724;
+            /* Màu chữ xanh đậm */
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 600;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .toast-close-btn {
+            color: #155724;
+            /* Màu xanh đậm */
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            line-height: 1;
+        }
+
+        /* Nội dung chi tiết sản phẩm */
+        .toast-body {
+            padding: 15px;
+        }
+
+        .toast-product-detail {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .toast-product-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .toast-product-info {
+            flex-grow: 1;
+        }
+
+        .toast-product-info h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 5px 0;
+            line-height: 1.3;
+        }
+
+        .toast-product-info p {
+            font-size: 14px;
+            margin: 0 0 5px 0;
+            color: #666;
+        }
+
+        .toast-product-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #001F5D;
+        }
+
+        /* Nút Xem giỏ hàng */
+        .toast-view-cart-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            background-color: #001F5D;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .toast-view-cart-btn:hover {
+            background-color: #2c3f64;
+        }
     </style>
 </head>
 
 <body>
-    <?php include 'header.php'; // Đã thêm file giả định 
-    ?>
+    <?php include 'header.php'; ?>
+    <div id="toast-notification" class="toast-notification">
+        <div class="toast-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-circle-check"></i>
+                Thêm vào giỏ hàng thành công
+            </div>
+            <button class="toast-close-btn" onclick="hideToast()">&times;</button>
+        </div>
 
+        <div class="toast-body">
+            <div class="toast-product-detail">
+                <img id="toast-image" src="" alt="Product Image" class="toast-product-image">
+                <div class="toast-product-info">
+                    <h4 id="toast-name"></h4>
+                    <p id="toast-variant"></p>
+                    <p id="toast-price" class="toast-product-price"></p>
+                </div>
+            </div>
+            <a href="cart.php" class="toast-view-cart-btn">Xem giỏ hàng</a>
+        </div>
+    </div>
     <div class="main-product-area">
 
         <div class="product-gallery-block">
@@ -764,7 +903,7 @@ $default_size = 'M (US 8)';
                                 <i class="fa-solid fa-cart-plus"></i> Thêm vào giỏ
                             </button>
 
-                            <button type="submit" name="buy_now" formaction="checkout.php" class="btn-buy">
+                            <button type="submit" name="buy_now" id="buy-now-btn" class="btn-buy">
                                 <i class="fa-solid fa-bolt"></i> Mua ngay
                             </button>
                         </div>
@@ -895,7 +1034,7 @@ $default_size = 'M (US 8)';
             input.value = current;
         }
 
-        // Hàm sao chép voucher (Giữ nguyên)
+        // HÀM SAO CHÉP VOUCHER (BỎ ALERT)
         function copyVoucher(voucherCode) {
             const tempInput = document.createElement('input');
             tempInput.value = voucherCode;
@@ -906,7 +1045,8 @@ $default_size = 'M (US 8)';
 
             document.body.removeChild(tempInput);
 
-            alert(`✅ Đã sao chép mã voucher: ${voucherCode}!\nVui lòng dán mã này ở trang thanh toán.`);
+            // THAY THẾ alert BẰNG TOAST
+            showToast(`✅ Đã sao chép mã voucher: ${voucherCode}! Vui lòng dán mã này ở trang thanh toán.`, 'success');
         }
 
         // Hàm chuyển tab (Giữ nguyên)
@@ -934,6 +1074,91 @@ $default_size = 'M (US 8)';
 
         document.addEventListener('DOMContentLoaded', () => {
             showTab('description-content');
+        });
+
+        // BẮT ĐẦU THÊM CHỨC NĂNG CHO NÚT MUA NGAY
+
+        const buyNowBtn = document.getElementById('buy-now-btn');
+        const form = document.querySelector('.product-action-form');
+        const defaultAction = form.getAttribute('action'); // Lấy action mặc định là add_to_cart.php
+
+        if (buyNowBtn && form) {
+            buyNowBtn.addEventListener('click', function(event) {
+                // Đảm bảo form gửi dữ liệu đến add_to_cart.php trước
+                form.action = defaultAction;
+
+                // 1. Thêm một trường ẩn để báo cho add_to_cart.php biết cần chuyển hướng
+                let redirectInput = document.createElement('input');
+                redirectInput.type = 'hidden';
+                redirectInput.name = 'redirect_to_cart';
+                redirectInput.value = 'true';
+                form.appendChild(redirectInput);
+
+                // Tự động submit form. Sau đó, file add_to_cart.php sẽ xử lý logic chuyển hướng.
+            });
+        }
+
+        // --- LOGIC HIỂN THỊ TOAST (ĐÃ CẬP NHẬT) ---
+        function showToast(productData) {
+            const toast = document.getElementById('toast-notification');
+
+            // 1. Cập nhật nội dung sản phẩm
+            document.getElementById('toast-image').src = productData.image;
+            document.getElementById('toast-name').textContent = productData.name;
+            document.getElementById('toast-variant').textContent = `${productData.size}`;
+            document.getElementById('toast-price').textContent = productData.price;
+
+            // 2. Hiển thị Toast
+            toast.classList.add('show');
+
+            // 3. Tự động ẩn sau 5 giây
+            setTimeout(() => {
+                hideToast();
+            }, 5000);
+        }
+
+        function hideToast() {
+            document.getElementById('toast-notification').classList.remove('show');
+        }
+
+
+        // Hàm sao chép voucher (Giữ nguyên logic gọi Toast mới)
+        function copyVoucher(voucherCode) {
+            // ... (logic sao chép voucher, bạn có thể bỏ qua nếu đã làm xong) ...
+
+            const tempInput = document.createElement('input');
+            tempInput.value = voucherCode;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            // Bạn có thể dùng alert tạm thời cho voucher hoặc thiết kế một Toast đơn giản khác
+            alert(`✅ Đã sao chép mã voucher: ${voucherCode}! Vui lòng dán mã này ở trang thanh toán.`);
+        }
+
+        // Hàm để kiểm tra URL sau khi thêm giỏ hàng (ĐÃ CẬP NHẬT)
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab('description-content');
+
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Kiểm tra tham số từ URL
+            if (urlParams.has('add_to_cart_success')) {
+                // Lấy thông tin từ tham số URL được gửi từ add_to_cart.php
+                const productData = {
+                    name: decodeURIComponent(urlParams.get('product_name') || 'Sản phẩm'),
+                    size: decodeURIComponent(urlParams.get('product_size') || 'M'),
+                    price: decodeURIComponent(urlParams.get('product_price') || '0đ'),
+                    image: urlParams.get('product_image') ? `uploads/${decodeURIComponent(urlParams.get('product_image'))}` : 'uploads/no-image.png'
+                };
+
+                showToast(productData);
+
+                // Xóa tham số khỏi URL để thông báo không hiện lại khi refresh
+                const newUrl = window.location.pathname + window.location.hash;
+                history.replaceState(null, '', newUrl);
+            }
         });
     </script>
 </body>

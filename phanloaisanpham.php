@@ -10,7 +10,8 @@ $message = "";
 
 // --- Lấy danh sách danh mục cha (Cấp 1) để điền vào Select Box ---
 $parent_categories = [];
-$sql_parent = "SELECT id, ten_phan_loai FROM phan_loai_san_pham WHERE parent_id IS NULL AND trang_thai = 'Đang sử dụng' ORDER BY ten_phan_loai ASC";
+// Lấy thêm cả loai_chinh của danh mục cha để dùng cho JS tự động điền
+$sql_parent = "SELECT id, ten_phan_loai, loai_chinh FROM phan_loai_san_pham WHERE parent_id IS NULL AND trang_thai = 'Đang sử dụng' ORDER BY ten_phan_loai ASC";
 $result_parent = $conn->query($sql_parent);
 if ($result_parent) {
     while ($row = $result_parent->fetch_assoc()) {
@@ -26,6 +27,8 @@ if (isset($_POST['add'])) {
     $trang_thai = $_POST['trang_thai'] ?? 'Đang sử dụng';
     $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : NULL;
 
+    // Nếu là danh mục Cấp 1, $loai_chinh là bắt buộc, nếu là danh mục con, $loai_chinh sẽ được lấy từ select box (thường được điền tự động)
+
     if ($ten != "") {
         $check = $conn->prepare("SELECT id FROM phan_loai_san_pham WHERE ten_phan_loai = ?");
         $check->bind_param("s", $ten);
@@ -37,13 +40,15 @@ if (isset($_POST['add'])) {
         } else {
             // Xử lý Prepared Statement cho NULL (đã sửa)
             if ($parent_id === NULL) {
+                // Thêm danh mục Cấp 1
                 $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai, parent_id)
-                        VALUES (?, ?, ?, ?, NULL)";
+                         VALUES (?, ?, ?, ?, NULL)";
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param("ssss", $ten, $mo_ta, $loai_chinh, $trang_thai);
             } else {
+                // Thêm danh mục con (Cấp 2) - loai_chinh sẽ được lấy từ form (đã được JS điền)
                 $sql = "INSERT INTO phan_loai_san_pham (ten_phan_loai, mo_ta, loai_chinh, trang_thai, parent_id)
-                        VALUES (?, ?, ?, ?, ?)";
+                         VALUES (?, ?, ?, ?, ?)";
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param("ssssi", $ten, $mo_ta, $loai_chinh, $trang_thai, $parent_id);
             }
@@ -96,6 +101,7 @@ if (isset($_POST['update'])) {
 // --- Xử lý xóa ---
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
+    // Cần kiểm tra và xóa/cập nhật khóa ngoại trước nếu có
     $sql = "DELETE FROM phan_loai_san_pham WHERE id=?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $id);
@@ -163,6 +169,7 @@ $result = $stmt->get_result();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <style>
+        /* CSS KHÔNG THAY ĐỔI NHIỀU, CHỈ THÊM LỚP ẨN */
         /* ======================================== */
         /* === 1. THIẾT LẬP CHUNG VÀ BỐ CỤC MAIN === */
         /* ======================================== */
@@ -249,6 +256,11 @@ $result = $stmt->get_result();
 
         .form-row>* {
             flex: 1;
+        }
+
+        /* Thêm lớp CSS để ẩn/hiện */
+        .hidden-group {
+            display: none;
         }
 
         label {
@@ -502,13 +514,17 @@ $result = $stmt->get_result();
                         <label for="parent_id">Danh mục Cha (Cấp 1)</label>
                         <select name="parent_id" id="parent_id">
                             <option value="0">-- Là Danh mục CHA --</option>
-                            <?php foreach ($parent_categories as $cat) { ?>
-                                <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['ten_phan_loai']) ?></option>
+                            <?php
+                            // Lặp qua danh mục cha, thêm data-loai-chinh để JS lấy thông tin
+                            foreach ($parent_categories as $cat) { ?>
+                                <option value="<?= $cat['id'] ?>" data-loai-chinh="<?= htmlspecialchars($cat['loai_chinh']) ?>">
+                                    <?= htmlspecialchars($cat['ten_phan_loai']) ?>
+                                </option>
                             <?php } ?>
                         </select>
                     </div>
 
-                    <div class="form-group-triple">
+                    <div class="form-group-triple" id="loai_chinh_group">
                         <label for="loai_chinh">Loại Chính</label>
                         <select name="loai_chinh" id="loai_chinh" required>
                             <option value="Quần">Quần</option>
@@ -552,6 +568,7 @@ $result = $stmt->get_result();
                             <option value="">-- Lọc theo Danh mục CHA --</option>
                             <option value="NULL" <?= $filter_parent === 'NULL' ? 'selected' : '' ?>>-- DANH MỤC CHA (Cấp 1) --</option>
                             <?php
+                            // Lặp lại danh mục cha cho thanh lọc
                             foreach ($parent_categories as $cat) { ?>
                                 <option value="<?= $cat['id'] ?>" <?= (string)$filter_parent === (string)$cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['ten_phan_loai']) ?></option>
                             <?php } ?>
@@ -646,20 +663,80 @@ $result = $stmt->get_result();
         const addBtn = document.getElementById('btn-add');
         const updateBtn = document.getElementById('btn-update');
         const parentSelect = document.getElementById('parent_id');
+        const loaiChinhGroup = document.getElementById('loai_chinh_group');
+        const loaiChinhSelect = document.getElementById('loai_chinh');
 
+        // Dữ liệu Danh mục Cha (Cấp 1) và Loại Chính tương ứng
+        // Lấy thông tin loai_chinh của các danh mục cha từ các option có sẵn
+        const parentCategoriesData = {};
+        parentSelect.querySelectorAll('option').forEach(option => {
+            const id = option.value;
+            const loaiChinh = option.dataset.loaiChinh;
+            if (id !== '0' && loaiChinh) {
+                parentCategoriesData[id] = loaiChinh;
+            }
+        });
+
+        // Hàm xử lý hiển thị/ẩn trường Loại Chính
+        function toggleLoaiChinh(parentId, isEditMode = false, currentLoaiChinh = 'Khác') {
+            if (parentId === '0') {
+                // Là Danh mục CHA (Cấp 1)
+                loaiChinhGroup.style.display = 'block'; // Hiển thị
+                loaiChinhSelect.required = true;
+
+                // Nếu là chế độ Thêm mới, đặt giá trị mặc định là 'Khác'
+                if (!isEditMode) {
+                    loaiChinhSelect.value = 'Khác';
+                }
+            } else {
+                // Là Danh mục CON (Cấp 2)
+                loaiChinhGroup.style.display = 'block'; // Hiển thị
+
+                // Tự động điền giá trị Loại Chính của danh mục cha
+                const loaiChinhOfParent = parentCategoriesData[parentId];
+                if (loaiChinhOfParent) {
+                    loaiChinhSelect.value = loaiChinhOfParent;
+                } else if (isEditMode) {
+                    // Trong trường hợp sửa, giữ lại giá trị cũ nếu không tìm thấy
+                    loaiChinhSelect.value = currentLoaiChinh;
+                }
+
+                // Đặt lại trạng thái required/disabled nếu cần, nhưng thường danh mục con vẫn cần gửi đi loai_chinh
+                loaiChinhSelect.required = true;
+            }
+        }
+
+        // 1. Ẩn Loai Chinh khi trang vừa tải
+        loaiChinhGroup.style.display = 'none';
+
+        // 2. Lắng nghe sự kiện thay đổi của Danh mục Cha
+        parentSelect.addEventListener('change', () => {
+            const selectedParentId = parentSelect.value;
+            toggleLoaiChinh(selectedParentId);
+        });
+
+        // 3. Xử lý nút SỬA
         editButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 // 1. Đổ dữ liệu vào form
                 document.getElementById('id').value = btn.dataset.id;
                 document.getElementById('ten_phan_loai').value = btn.dataset.ten;
-                document.getElementById('loai_chinh').value = btn.dataset.loai;
                 document.getElementById('mo_ta').value = btn.dataset.mo_ta;
                 document.getElementById('trang_thai').value = btn.dataset.trang_thai;
 
-                // 2. Xử lý Parent ID: parentId sẽ là '0' nếu danh mục là Cấp 1
+                let currentLoai = btn.dataset.loai;
+
+                // 2. Xử lý Parent ID và hiển thị Loại Chính
                 let parentId = btn.dataset.parent;
                 parentSelect.value = parentId;
+
+                // Gọi hàm hiển thị Loại Chính với chế độ sửa
+                toggleLoaiChinh(parentId, true, currentLoai);
+
+                // Đảm bảo Loại Chính được chọn đúng giá trị trong chế độ sửa
+                loaiChinhSelect.value = currentLoai;
+
 
                 // 3. Chuyển đổi trạng thái nút
                 addBtn.style.display = 'none';
@@ -668,16 +745,21 @@ $result = $stmt->get_result();
             });
         });
 
+        // 4. Xử lý nút HỦY
         cancelBtn.addEventListener('click', () => {
             // 1. Reset form
             document.getElementById('id').value = '';
             document.getElementById('ten_phan_loai').value = '';
             document.getElementById('mo_ta').value = '';
             document.getElementById('trang_thai').value = 'Đang sử dụng';
-            document.getElementById('loai_chinh').value = 'Khác';
+            loaiChinhSelect.value = 'Khác'; // Reset về mặc định
             parentSelect.value = '0'; // Reset về Cấp CHA
 
-            // 2. Chuyển đổi trạng thái nút
+            // 2. Ẩn lại trường Loại Chính
+            loaiChinhGroup.style.display = 'none';
+            loaiChinhSelect.required = false;
+
+            // 3. Chuyển đổi trạng thái nút
             addBtn.style.display = 'inline-block';
             updateBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
