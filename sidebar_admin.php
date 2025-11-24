@@ -59,19 +59,14 @@ $avatar_path = !empty($_SESSION['avatar'])
         <li>
             <div class="menu-header">
                 <i class="fa fa-boxes-stacked"></i>
-                <span>Sản phẩm</span>
-                <i class="fa fa-chevron-right toggle-submenu"></i>
+                <a href="quan_ly_san_pham.php">Sản phẩm</a>
             </div>
-            <ul class="submenu">
-                <li><a href="quan_ly_san_pham.php">Danh sách sản phẩm</a></li>
-                <li><a href="themsanpham.php">Thêm sản phẩm</a></li>
-            </ul>
         </li>
 
         <li>
             <div class="menu-header">
                 <i class="fa fa-warehouse"></i>
-                <span>Quản lý kho</span>
+                <span>Kho hàng</span>
                 <i class="fa fa-chevron-right toggle-submenu"></i>
             </div>
             <ul class="submenu">
@@ -109,7 +104,7 @@ $avatar_path = !empty($_SESSION['avatar'])
         <li>
             <div class="menu-header">
                 <i class="fa fa-globe"></i>
-                <a href="maincustomer.php">Trang khách hàng</a>
+                <a href="maincustomer.php">Giao diện web</a>
             </div>
         </li>
     </ul>

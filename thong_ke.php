@@ -16,7 +16,7 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] != 'admin' && $_SESSION['rol
 $sql_orders = "SELECT COUNT(*) AS total_orders FROM don_hang";
 $total_orders = mysqli_fetch_assoc(mysqli_query($conn, $sql_orders))['total_orders'] ?? 0;
 
-$sql_revenue = "SELECT SUM(total) AS total_revenue FROM don_hang";
+$sql_revenue = "SELECT SUM(total) AS total_revenue FROM don_hang WHERE status IN (2, 3, 4)"; // Chỉ tính doanh thu đơn hàng đã xử lý
 $total_revenue = mysqli_fetch_assoc(mysqli_query($conn, $sql_revenue))['total_revenue'] ?? 0;
 
 $sql_users = "SELECT COUNT(*) AS total_users FROM user WHERE role='user'";
@@ -39,6 +39,7 @@ $recent_orders = mysqli_query($conn, $sql_recent_orders);
 $sql_chart = "
     SELECT DATE_FORMAT(created_at, '%m/%Y') AS month, SUM(total) AS revenue
     FROM don_hang
+    WHERE status IN (2, 3, 4) -- Chỉ tính doanh thu của đơn hàng đã được xác nhận hoặc giao
     GROUP BY DATE_FORMAT(created_at, '%m/%Y')
     ORDER BY MIN(created_at)
 ";
@@ -66,6 +67,64 @@ $sql_top_seller = "
     LIMIT 5
 ";
 $top_seller = mysqli_query($conn, $sql_top_seller);
+
+// ... Các truy vấn thống kê khác (total_orders, total_revenue, v.v.) ...
+
+// =================== LẤY HOẠT ĐỘNG GẦN ĐÂY ===================
+// ... Các truy vấn thống kê khác ...
+
+// =================== LẤY HOẠT ĐỘNG GẦN ĐÂY (Đã sửa) ===================
+$sql_activities = "
+    SELECT 
+        ten_tai_khoan, 
+        module, 
+        hanh_dong_chi_tiet, 
+        -- ✅ Sử dụng CONVERT_TZ nếu database lưu ở múi giờ khác VN (ví dụ: 'UTC')
+        -- Nếu database của bạn đã được cấu hình lưu giờ VN, hãy dùng: ngay_gio
+        -- Giả định database lưu UTC, chuyển sang VN:
+        CONVERT_TZ(ngay_gio, 'UTC', 'Asia/Ho_Chi_Minh') AS ngay_gio 
+    FROM nhat_ky_hoat_dong
+    ORDER BY ngay_gio DESC
+    LIMIT 5
+";
+$recent_activities_result = mysqli_query($conn, $sql_activities);
+
+// ... Hàm format_time_ago giữ nguyên ...
+
+// =================== HÀM HỖ TRỢ ===================
+
+// Hàm định dạng thời gian (Cần định nghĩa nếu chưa có)
+if (!function_exists('format_time_ago')) {
+    function format_time_ago($datetime)
+    {
+        // Đảm bảo múi giờ đã được thiết lập trước khi sử dụng DateTime
+        $time = new DateTime($datetime);
+        $now = new DateTime();
+        $interval = $time->diff($now);
+
+        if ($interval->y > 0) return $interval->format('%y năm trước');
+        if ($interval->m > 0) return $interval->format('%m tháng trước');
+        if ($interval->d > 0) return $interval->format('%d ngày trước');
+        if ($interval->h > 0) return $interval->format('%h giờ trước');
+        if ($interval->i > 0) return $interval->format('%i phút trước');
+        return 'Vừa xong';
+    }
+}
+
+// Hàm lấy biểu tượng dựa trên Module (hoặc nội dung)
+function get_activity_icon($module)
+{
+    if (strpos($module, 'sản phẩm') !== false || strpos($module, 'Kho') !== false) {
+        return 'fa-box';
+    } elseif (strpos($module, 'mua hàng') !== false || strpos($module, 'Đơn hàng') !== false) {
+        return 'fa-shopping-cart';
+    } elseif (strpos($module, 'người dùng') !== false) {
+        return 'fa-user-plus';
+    } elseif (strpos($module, 'bình luận') !== false) {
+        return 'fa-comment';
+    }
+    return 'fa-list-check';
+}
 ?>
 
 <!DOCTYPE html>
@@ -132,6 +191,7 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            object-fit: cover;
         }
 
         /* ==== USER DROPDOWN ==== */
@@ -509,16 +569,71 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
             min-width: 75px;
         }
 
+        /* Cập nhật CSS Class cho các trạng thái */
         .pending {
+            /* Dành cho 1 (Chờ xác nhận), 2 (Đang chuẩn bị), 3 (Đang giao) */
             background: #f39c12;
+            /* Vàng */
+        }
+
+        .spend {
+            background: #4a8fd8ff;
+            /* Vàng */
         }
 
         .completed {
+            /* Dành cho 4 (Đã giao) */
             background: #27ae60;
+            /* Xanh lá */
         }
 
         .canceled {
+            /* Dành cho 0 (Đã hủy) */
             background: #e74c3c;
+            /* Đỏ */
+        }
+
+        /* ==== CSS cho RECENT ACTIVITIES ==== */
+        .activities h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        .activities .activity {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 10px 0;
+            border-bottom: 1px dashed #f3f3f3;
+        }
+
+        .activities .activity:last-child {
+            border-bottom: none;
+        }
+
+        .activities .activity i {
+            font-size: 1rem;
+            color: #4e73df;
+            /* Màu xanh chủ đạo */
+            padding-top: 3px;
+        }
+
+        .activities .activity-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .activities .activity-details span {
+            font-size: 0.9rem;
+            color: #34495e;
+            line-height: 1.3;
+        }
+
+        .activities .activity-details small {
+            font-size: 0.75rem;
+            color: #95a5a6;
+            margin-top: 2px;
         }
     </style>
 </head>
@@ -557,7 +672,6 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 </div>
             </div>
 
-            <!-- Overview Cards -->
             <div class="overview">
                 <div class="card">
                     <h4>Tổng đơn hàng</h4>
@@ -581,7 +695,6 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 </div>
             </div>
 
-            <!-- Chart + Top Seller -->
             <div class="chart-section">
                 <div class="chart-container">
                     <h3>Doanh thu hàng tháng</h3>
@@ -627,10 +740,9 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 </div>
             </div>
 
-            <!-- Recent Orders & Activities -->
             <div class="bottom-section">
                 <div class="recent-orders">
-                    <h3>Recent Orders</h3>
+                    <h3>Đơn hàng gần đây</h3>
                     <table>
                         <thead>
                             <tr>
@@ -642,8 +754,36 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                         </thead>
                         <tbody>
                             <?php while ($row = mysqli_fetch_assoc($recent_orders)) :
-                                $status_class = ($row['status'] == 1) ? 'completed' : (($row['status'] == 0) ? 'pending' : 'canceled');
-                                $status_text = ($row['status'] == 1) ? 'Hoàn tất' : (($row['status'] == 0) ? 'Đang xử lý' : 'Hủy');
+                                // Lấy trạng thái từ DB
+                                $order_status = $row['status'];
+
+                                // LOGIC MỚI THEO CÁC MÃ TRẠNG THÁI: 1, 2, 3 -> pending; 4 -> completed; 0 -> canceled
+                                switch ($order_status) {
+                                    case 4:
+                                        $status_class = 'completed';
+                                        $status_text = 'Đã giao';
+                                        break;
+                                    case 0:
+                                        $status_class = 'canceled';
+                                        $status_text = 'Đã hủy';
+                                        break;
+                                    case 1:
+                                        $status_class = 'pending';
+                                        $status_text = 'Chờ xác nhận';
+                                        break;
+                                    case 2:
+                                        $status_class = 'pending';
+                                        $status_text = 'Đang chuẩn bị';
+                                        break;
+                                    case 3:
+                                        $status_class = 'spend';
+                                        $status_text = 'Đang giao';
+                                        break;
+                                    default:
+                                        $status_class = 'pending';
+                                        $status_text = 'Chờ xử lý';
+                                        break;
+                                }
                             ?>
                                 <tr>
                                     <td>#<?= htmlspecialchars($row['order_id']); ?></td>
@@ -657,25 +797,44 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 </div>
 
                 <div class="activities">
-                    <h3>Recent Activities</h3>
-                    <div class="activity"><i class="fa fa-user-plus"></i>
-                        <div class="activity-details"><span>Người dùng mới: <b>hoangminh</b></span><small>5 phút trước</small></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <h3>Nhật ký hoạt động</h3>
+                        <a href="nhat_ky_hoat_dong.php" style="font-size: 0.85rem; color: #4e73df; text-decoration: none; font-weight: 500;">
+                            Xem tất cả <i class="fa-solid fa-arrow-right"></i>
+                        </a>
                     </div>
-                    <div class="activity"><i class="fa fa-shopping-cart"></i>
-                        <div class="activity-details"><span>Đơn hàng mới được hoàn tất</span><small>20 phút trước</small></div>
-                    </div>
-                    <div class="activity"><i class="fa fa-comment"></i>
-                        <div class="activity-details"><span>Người dùng <b>lananh</b> đã bình luận sản phẩm</span><small>1 giờ trước</small></div>
-                    </div>
-                    <div class="activity"><i class="fa fa-box"></i>
-                        <div class="activity-details"><span>5 sản phẩm mới đã được thêm</span><small>2 giờ trước</small></div>
-                    </div>
+
+                    <?php
+                    if (mysqli_num_rows($recent_activities_result) > 0):
+                        while ($log = mysqli_fetch_assoc($recent_activities_result)):
+                            // ✅ Đảm bảo hàm get_activity_icon đã được định nghĩa ở phần đầu file
+                            $icon_class = get_activity_icon($log['module'] . ' ' . $log['hanh_dong_chi_tiet']);
+                    ?>
+                            <div class="activity">
+                                <i class="fa <?= htmlspecialchars($icon_class); ?>"></i>
+                                <div class="activity-details">
+                                    <span><b><?= htmlspecialchars($log['ten_tai_khoan']); ?></b>: <?= htmlspecialchars($log['hanh_dong_chi_tiet']); ?></span>
+
+                                    <small title="<?= date('d/m/Y H:i:s', strtotime($log['ngay_gio'])) ?>">
+                                        <?= format_time_ago($log['ngay_gio']); ?>
+                                    </small>
+                                </div>
+                            </div>
+                        <?php
+                        endwhile;
+                    else:
+                        ?>
+                        <div style="font-size: 0.9rem; color: #95a5a6; padding: 10px 0;">Chưa có hoạt động gần đây.</div>
+                    <?php endif; ?>
                 </div>
+
+                <script>
+                    // ... JavaScript (Giữ nguyên) ...
+                </script>
             </div>
         </div>
     </div>
 
-    <!-- ChartJS -->
     <script>
         const ctx = document.getElementById('revenueChart').getContext('2d');
         const months = <?php echo $months_json; ?>;

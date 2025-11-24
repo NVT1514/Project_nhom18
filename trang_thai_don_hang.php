@@ -11,14 +11,14 @@ if ($user_id === 0) {
     exit();
 }
 
-// ================== ĐỊNH NGHĨA TRẠNG THÁI ==================
-// 0: Chờ xác nhận, 4: Đang chuẩn bị, 1: Đang giao, 2: Đã giao, 3: Đã hủy
+// ================== ĐỊNH NGHĨA TRẠNG THÁI MỚI ==================
+// 0: Đã hủy, 1: Chờ xác nhận, 2: Đang chuẩn bị, 3: Đang giao, 4: Đã giao
 $statuses = [
-    0 => ['text' => 'Chờ xác nhận', 'class' => 'pending', 'filter' => 'pending', 'icon' => 'fa-clock'],
-    4 => ['text' => 'Đang chuẩn bị hàng', 'class' => 'preparing', 'filter' => 'preparing', 'icon' => 'fa-box'],
-    1 => ['text' => 'Đang giao hàng', 'class' => 'shipping', 'filter' => 'shipping', 'icon' => 'fa-truck-fast'],
-    2 => ['text' => 'Đã giao hàng thành công', 'class' => 'done', 'filter' => 'done', 'icon' => 'fa-circle-check'],
-    3 => ['text' => 'Đã hủy', 'class' => 'cancelled', 'filter' => 'cancelled', 'icon' => 'fa-circle-xmark']
+    1 => ['text' => 'Chờ xác nhận', 'class' => 'pending', 'filter' => 'pending', 'icon' => 'fa-clock'],
+    2 => ['text' => 'Đang chuẩn bị hàng', 'class' => 'preparing', 'filter' => 'preparing', 'icon' => 'fa-box'],
+    3 => ['text' => 'Đang giao hàng', 'class' => 'shipping', 'filter' => 'shipping', 'icon' => 'fa-truck-fast'],
+    4 => ['text' => 'Đã giao hàng thành công', 'class' => 'done', 'filter' => 'done', 'icon' => 'fa-circle-check'],
+    0 => ['text' => 'Đã hủy', 'class' => 'cancelled', 'filter' => 'cancelled', 'icon' => 'fa-circle-xmark'] // SỬA: Mã 0 là Đã Hủy
 ];
 
 // Lấy bộ lọc từ URL (Mặc định là 'pending' - Chờ xác nhận)
@@ -33,12 +33,12 @@ foreach ($statuses as $id => $info) {
     }
 }
 
-// Nếu filter_slug là 'all' (Mặc dù đã bỏ tab, nhưng vẫn có thể dùng qua URL)
+// Nếu filter_slug là 'all'
 if ($filter_slug === 'all') {
     $filter_status_id = 'all';
 }
 
-// ================== XỬ LÝ HỦY ĐƠN HÀNG ==================
+// ================== XỬ LÝ HỦY ĐƠN HÀNG (1 -> 0) ==================
 if (isset($_POST['cancel_order'])) {
     $order_id = filter_var($_POST['order_id'], FILTER_SANITIZE_NUMBER_INT);
 
@@ -49,9 +49,9 @@ if (isset($_POST['cancel_order'])) {
     $order_status = $stmt_check->get_result()->fetch_assoc()['status'] ?? null;
     $stmt_check->close();
 
-    // CHỈ CHO PHÉP HỦY NẾU TRẠNG THÁI LÀ 0 (Chờ xác nhận)
-    if ($order_status !== null && $order_status == 0) {
-        $cancel_sql = "UPDATE don_hang SET status = 3 WHERE id = ?";
+    // CHỈ CHO PHÉP HỦY NẾU TRẠNG THÁI LÀ 1 (Chờ xác nhận)
+    if ($order_status !== null && $order_status == 1) { // SỬA: Kiểm tra status = 1
+        $cancel_sql = "UPDATE don_hang SET status = 0 WHERE id = ?"; // SỬA: Cập nhật status = 0 (Đã hủy)
         $stmt_cancel = $conn->prepare($cancel_sql);
         $stmt_cancel->bind_param("i", $order_id);
         $stmt_cancel->execute();
@@ -59,6 +59,31 @@ if (isset($_POST['cancel_order'])) {
 
         // Chuyển hướng để refresh trang và giữ nguyên filter
         header("Location: " . $_SERVER['PHP_SELF'] . "?filter=" . urlencode($filter_slug));
+        exit();
+    }
+}
+
+// ================== XỬ LÝ KHÔI PHỤC ĐƠN HÀNG (0 -> 1) ==================
+if (isset($_POST['restore_order'])) {
+    $order_id = filter_var($_POST['order_id'], FILTER_SANITIZE_NUMBER_INT);
+
+    $check_sql = "SELECT status FROM don_hang WHERE id = ? AND user_id = ?";
+    $stmt_check = $conn->prepare($check_sql);
+    $stmt_check->bind_param("ii", $order_id, $user_id);
+    $stmt_check->execute();
+    $order_status = $stmt_check->get_result()->fetch_assoc()['status'] ?? null;
+    $stmt_check->close();
+
+    // CHỈ CHO PHÉP KHÔI PHỤC NẾU TRẠNG THÁI LÀ 0 (Đã hủy)
+    if ($order_status !== null && $order_status == 0) { // SỬA: Kiểm tra status = 0
+        $restore_sql = "UPDATE don_hang SET status = 1 WHERE id = ?"; // SỬA: Cập nhật status = 1 (Chờ xác nhận)
+        $stmt_restore = $conn->prepare($restore_sql);
+        $stmt_restore->bind_param("i", $order_id);
+        $stmt_restore->execute();
+        $stmt_restore->close();
+
+        // Chuyển hướng để refresh trang và chuyển về tab "Đã hủy"
+        header("Location: " . $_SERVER['PHP_SELF'] . "?filter=" . urlencode('cancelled'));
         exit();
     }
 }
@@ -87,7 +112,7 @@ if ($filter_status_id !== null && $filter_status_id !== 'all') {
     // Nếu có lọc trạng thái, types là 'ii' và params là [$user_id, $filter_status_id]
     $stmt->bind_param('ii', $user_id, $filter_status_id);
 } else {
-    // Nếu filter là 'all' hoặc mặc định 'pending' (chỉ có $user_id trong $params[0])
+    // Nếu filter là 'all' hoặc mặc định 'pending' 
     $stmt->bind_param('i', $user_id);
 }
 
@@ -108,6 +133,7 @@ $conn->close();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        /* CSS được giữ nguyên để đảm bảo giao diện không bị thay đổi */
         * {
             margin: 0;
             padding: 0;
@@ -386,6 +412,28 @@ $conn->close();
             box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
         }
 
+        /* New Restore Button Style */
+        .btn-restore {
+            background: linear-gradient(135deg, #10b981, #059669);
+            /* Màu xanh lá cho khôi phục */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .btn-restore:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -439,7 +487,8 @@ $conn->close();
             }
 
             .btn-detail,
-            .btn-cancel {
+            .btn-cancel,
+            .btn-restore {
                 width: 100%;
                 justify-content: center;
             }
@@ -496,7 +545,6 @@ $conn->close();
         include "breadcrumb.php";
         ?>
 
-        <!-- Page Header -->
         <div class="page-header">
             <h1>
                 <i class="fa-solid fa-clipboard-list"></i>
@@ -506,7 +554,6 @@ $conn->close();
         </div>
 
         <div class="order-container">
-            <!-- CÁC TABS LỌC TRẠNG THÁI -->
             <div class="tab-filters">
                 <?php foreach ($statuses as $id => $info): ?>
                     <a href="?filter=<?= $info['filter'] ?>"
@@ -522,13 +569,13 @@ $conn->close();
                     <?php while ($row = $result->fetch_assoc()): ?>
                         <?php
                         $current_status = $row['status'];
+                        // Lấy thông tin trạng thái theo mã mới
                         $status_info = $statuses[$current_status] ?? $statuses[0];
                         $status_text = $status_info['text'];
                         $status_class = $status_info['class'];
                         $status_icon = $status_info['icon'];
                         ?>
                         <div class="order-card">
-                            <!-- Order Header -->
                             <div class="order-card-header">
                                 <div>
                                     <div class="order-id">
@@ -546,7 +593,6 @@ $conn->close();
                                 </span>
                             </div>
 
-                            <!-- Order Body -->
                             <div class="order-card-body">
                                 <div class="order-info-item">
                                     <span class="order-info-label">
@@ -585,14 +631,14 @@ $conn->close();
                                 </div>
                             </div>
 
-                            <!-- Order Footer -->
                             <div class="order-card-footer">
                                 <a href="chi_tiet_don_hang.php?id=<?= $row['id'] ?>" class="btn-detail">
                                     <i class="fa-solid fa-eye"></i>
                                     Xem chi tiết
                                 </a>
 
-                                <?php if ($current_status == 0): ?>
+                                <?php if ($current_status == 1): // Hiển thị nút HỦY nếu đang Chờ xác nhận (1) 
+                                ?>
                                     <form method="POST"
                                         onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?');"
                                         style="display: inline;">
@@ -600,6 +646,18 @@ $conn->close();
                                         <button type="submit" name="cancel_order" class="btn-cancel">
                                             <i class="fa-solid fa-xmark"></i>
                                             Hủy đơn
+                                        </button>
+                                    </form>
+
+                                <?php elseif ($current_status == 0): // Hiển thị nút KHÔI PHỤC nếu đang Đã Hủy (0) 
+                                ?>
+                                    <form method="POST"
+                                        onsubmit="return confirm('Bạn có chắc chắn muốn khôi phục đơn hàng này về trạng thái Chờ xác nhận không?');"
+                                        style="display: inline;">
+                                        <input type="hidden" name="order_id" value="<?= $row['id'] ?>">
+                                        <button type="submit" name="restore_order" class="btn-restore">
+                                            <i class="fa-solid fa-rotate-left"></i>
+                                            Khôi phục đơn
                                         </button>
                                     </form>
                                 <?php endif; ?>

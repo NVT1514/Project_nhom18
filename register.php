@@ -346,11 +346,6 @@ if (isset($conn)) {
         </div>
 
         <div class="register-form-wrapper">
-            <div class="top-links">
-                <a href="login.php" class="signin">Đăng nhập</a>
-                <a href="#" class="signup">Đăng ký</a>
-            </div>
-
             <h2>Đăng Ký Tài Khoản</h2>
 
             <?php if (!empty($success)): ?>
@@ -369,24 +364,24 @@ if (isset($conn)) {
                     <label for="username">Tên đăng nhập</label>
                     <input type="text" id="username" name="username"
                         value="<?php echo htmlspecialchars($form_data['username'] ?? ''); ?>"
-                        placeholder="Tên đăng nhập" required autocomplete="username">
+                        required autocomplete="username">
                 </div>
 
                 <div class="input-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email"
                         value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>"
-                        placeholder="Email" required autocomplete="email">
+                        required autocomplete="email">
                 </div>
 
                 <div class="input-group">
                     <label for="password">Mật khẩu</label>
-                    <input type="password" id="password" name="password" placeholder="Mật khẩu" required autocomplete="new-password">
+                    <input type="password" id="password" name="password" required autocomplete="new-password">
                 </div>
 
                 <div class="input-group">
                     <label for="confirm_password">Nhập lại mật khẩu</label>
-                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Nhập lại mật khẩu" required autocomplete="new-password">
+                    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
                 </div>
 
                 <button type="submit" class="btn-register">Đăng Ký</button>

@@ -60,7 +60,7 @@ if (isset($_POST['dang_nhap'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập | CLOTHIX</title>
+    <title>Đăng Nhập | CLOTHIX</title>
     <style>
         :root {
             --color-brand-blue: #092C4C;
@@ -324,12 +324,7 @@ if (isset($_POST['dang_nhap'])) {
         </div>
 
         <div class="login-form-wrapper">
-            <div class="top-links">
-                <a href="#" class="signin">Đăng nhập</a>
-                <a href="register.php" class="signup">Đăng ký</a>
-            </div>
-
-            <h2>Đăng nhập</h2>
+            <h2>Đăng Nhập</h2>
 
             <?php if (!empty($message)) : ?>
                 <div id="alertBox" class="alert alert-<?php echo $alert_type; ?>" role="alert">
@@ -351,6 +346,7 @@ if (isset($_POST['dang_nhap'])) {
 
             <div class="link-group">
                 <p><a href="forgot_password.php">Quên mật khẩu?</a></p>
+                <p>Bạn chưa có tài khoản? <a href="register.php">Đăng ký ngay</a></p>
             </div>
         </div>
     </div>

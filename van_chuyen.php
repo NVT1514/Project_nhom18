@@ -4,57 +4,97 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include "Database/connectdb.php"; // Đảm bảo đường dẫn file kết nối CSDL là chính xác
 
-// Chức năng: Truy vấn dữ liệu thống kê cho trang tổng quan
-// Sử dụng các mã trạng thái mở rộng để phù hợp với 6 thẻ
-// 1: Chờ lấy hàng | 4: Đã lấy hàng | 5: Đang giao hàng | 6: Chờ giao lại | 2: Đã hoàn hàng (Thành công) | 3: Đã hủy
-
-$stats_sql = "
-    SELECT
-        -- 1. Chờ lấy hàng (status = 1)
-        COUNT(CASE WHEN status = 1 THEN 1 END) AS cho_lay_hang_count,
-        SUM(CASE WHEN status = 1 AND payment_method = 'cod' THEN total ELSE 0 END) AS cho_lay_hang_cod,
-        SUM(CASE WHEN status = 1 THEN total ELSE 0 END) AS cho_lay_hang_total,
-
-        -- 2. Đã lấy hàng (status = 4)
-        COUNT(CASE WHEN status = 4 THEN 1 END) AS da_lay_hang_count,
-        SUM(CASE WHEN status = 4 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_lay_hang_cod,
-        SUM(CASE WHEN status = 4 THEN total ELSE 0 END) AS da_lay_hang_total,
-
-        -- 3. Đang giao hàng (status = 5)
-        COUNT(CASE WHEN status = 5 THEN 1 END) AS dang_giao_hang_count,
-        SUM(CASE WHEN status = 5 AND payment_method = 'cod' THEN total ELSE 0 END) AS dang_giao_hang_cod,
-        SUM(CASE WHEN status = 5 THEN total ELSE 0 END) AS dang_giao_hang_total,
-
-        -- 4. Chờ giao lại (status = 6)
-        COUNT(CASE WHEN status = 6 THEN 1 END) AS cho_giao_lai_count,
-        SUM(CASE WHEN status = 6 AND payment_method = 'cod' THEN total ELSE 0 END) AS cho_giao_lai_cod,
-        SUM(CASE WHEN status = 6 THEN total ELSE 0 END) AS cho_giao_lai_total,
-
-        -- 5. Đã hoàn hàng (status = 2 - Thành công)
-        COUNT(CASE WHEN status = 2 THEN 1 END) AS da_hoan_hang_count,
-        SUM(CASE WHEN status = 2 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_hoan_hang_cod,
-        SUM(CASE WHEN status = 2 THEN total ELSE 0 END) AS da_hoan_hang_total,
-
-        -- 6. Đã hủy/Hoàn (status = 3 - Hủy/Hoàn trả)
-        COUNT(CASE WHEN status = 3 THEN 1 END) AS da_huy_count,
-        -- Đơn hủy thường không có COD/Tổng cộng đáng kể, nhưng vẫn tính nếu có
-        SUM(CASE WHEN status = 3 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_huy_cod,
-        SUM(CASE WHEN status = 3 THEN total ELSE 0 END) AS da_huy_total,
-
-        -- Tổng cộng
-        COUNT(id) AS total_orders
-    FROM don_hang
-";
-
-$stats_result = $conn->query($stats_sql);
-$data = $stats_result->fetch_assoc();
-
 // Hàm định dạng tiền tệ
 function format_currency($amount)
 {
     return number_format($amount, 0, ',', '.') . '₫';
 }
 
+// =======================================================
+// I. TRUY VẤN DỮ LIỆU THẺ TỔNG QUAN VẬN CHUYỂN (TỪ PHẦN 1)
+// =======================================================
+// Mã trạng thái mở rộng cho vận chuyển: 
+// 1: Chờ lấy hàng | 4: Đã lấy hàng | 5: Đang giao hàng | 6: Chờ giao lại | 2: Đã hoàn hàng (Thành công) | 3: Đã hủy
+
+$stats_sql = "
+    SELECT
+        COUNT(CASE WHEN status = 1 THEN 1 END) AS cho_lay_hang_count,
+        SUM(CASE WHEN status = 1 AND payment_method = 'cod' THEN total ELSE 0 END) AS cho_lay_hang_cod,
+        SUM(CASE WHEN status = 1 THEN total ELSE 0 END) AS cho_lay_hang_total,
+
+        COUNT(CASE WHEN status = 4 THEN 1 END) AS da_lay_hang_count,
+        SUM(CASE WHEN status = 4 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_lay_hang_cod,
+        SUM(CASE WHEN status = 4 THEN total ELSE 0 END) AS da_lay_hang_total,
+
+        COUNT(CASE WHEN status = 5 THEN 1 END) AS dang_giao_hang_count,
+        SUM(CASE WHEN status = 5 AND payment_method = 'cod' THEN total ELSE 0 END) AS dang_giao_hang_cod,
+        SUM(CASE WHEN status = 5 THEN total ELSE 0 END) AS dang_giao_hang_total,
+
+        COUNT(CASE WHEN status = 6 THEN 1 END) AS cho_giao_lai_count,
+        SUM(CASE WHEN status = 6 AND payment_method = 'cod' THEN total ELSE 0 END) AS cho_giao_lai_cod,
+        SUM(CASE WHEN status = 6 THEN total ELSE 0 END) AS cho_giao_lai_total,
+
+        COUNT(CASE WHEN status = 2 THEN 1 END) AS da_hoan_hang_count,
+        SUM(CASE WHEN status = 2 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_hoan_hang_cod,
+        SUM(CASE WHEN status = 2 THEN total ELSE 0 END) AS da_hoan_hang_total,
+
+        COUNT(CASE WHEN status = 3 THEN 1 END) AS da_huy_count,
+        SUM(CASE WHEN status = 3 AND payment_method = 'cod' THEN total ELSE 0 END) AS da_huy_cod,
+        SUM(CASE WHEN status = 3 THEN total ELSE 0 END) AS da_huy_total,
+
+        COUNT(id) AS total_orders
+    FROM don_hang
+";
+$stats_result = $conn->query($stats_sql);
+$data = $stats_result->fetch_assoc();
+
+
+// =======================================================
+// II. TRUY VẤN DỮ LIỆU BIỂU ĐỒ (TỪ PHẦN 2 - 5 TRẠNG THÁI CHÍNH)
+// =======================================================
+$statuses_chart = [
+    // Đây là 5 trạng thái được sử dụng trong Biểu đồ tròn
+    0 => ['text' => 'Đã hủy', 'color' => '#dc3545'],
+    1 => ['text' => 'Chờ xác nhận/lấy hàng', 'color' => '#ff9800'],
+    2 => ['text' => 'Đang chuẩn bị hàng/Đã hoàn', 'color' => '#6c757d'],
+    3 => ['text' => 'Đang giao', 'color' => '#03a9f4'],
+    4 => ['text' => 'Đã giao', 'color' => '#4caf50']
+];
+ksort($statuses_chart);
+
+$chart_labels = [];
+$chart_counts = [];
+$chart_colors = [];
+$stats_data_chart = []; // Lưu trữ count và total cho bảng thống kê
+
+$sql_stats = "SELECT status, COUNT(id) AS count, SUM(total) as total, SUM(CASE WHEN payment_method = 'cod' THEN total ELSE 0 END) as cod FROM don_hang GROUP BY status";
+$result_stats = mysqli_query($conn, $sql_stats);
+
+if ($result_stats) {
+    while ($row = mysqli_fetch_assoc($result_stats)) {
+        $status_key = intval($row['status']);
+        $stats_data_chart[$status_key] = [
+            'count' => $row['count'],
+            'total' => $row['total'],
+            'cod' => $row['cod']
+        ];
+    }
+}
+// Chuyển dữ liệu sang mảng Biểu đồ (chỉ lấy các status có trong $statuses_chart)
+foreach ($statuses_chart as $key => $info) {
+    $count = $stats_data_chart[$key]['count'] ?? 0;
+
+    $chart_labels[] = $info['text'] . " ($count)";
+    $chart_counts[] = $count;
+    $chart_colors[] = $info['color'];
+}
+
+$js_labels = json_encode($chart_labels);
+$js_counts = json_encode($chart_counts);
+$js_colors = json_encode($chart_colors);
+
+// Đóng kết nối
+mysqli_close($conn);
 ?>
 
 <!DOCTYPE html>
@@ -64,8 +104,9 @@ function format_currency($amount)
     <meta charset="UTF-8">
     <title>Tổng quan vận chuyển</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* CSS Cơ bản */
+        /* CSS DÙNG LẠI TỪ PHẦN 1 */
         body {
             font-family: "Segoe UI", sans-serif;
             background: #f6f8fa;
@@ -76,6 +117,7 @@ function format_currency($amount)
         .main-content {
             flex: 1;
             padding: 30px;
+            padding-top: 100px;
         }
 
         /* ==== TOP BAR ==== */
@@ -95,10 +137,6 @@ function format_currency($amount)
             z-index: 100;
         }
 
-        .main-content {
-            padding-top: 100px;
-        }
-
         .search-box h1 {
             font-size: 1.5rem;
             color: #2c3e50;
@@ -115,6 +153,7 @@ function format_currency($amount)
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            object-fit: cover;
         }
 
         /* ==== USER DROPDOWN ==== */
@@ -219,20 +258,23 @@ function format_currency($amount)
             color: #898c95ff;
         }
 
+        .search-box h1 {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .user-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
         .dashboard-container {
             max-width: 1400px;
             margin: 0 auto;
         }
 
-        h2.title {
-            color: #333;
-            font-size: 24px;
-            margin-bottom: 25px;
-            font-weight: 600;
-        }
-
-        /* --- Thanh Bộ lọc (Tùy chỉnh để giống mẫu) --- */
         .filter-bar {
             display: flex;
             align-items: center;
@@ -269,10 +311,10 @@ function format_currency($amount)
             background-color: #0056b3;
         }
 
-        /* --- Thẻ Tổng quan (6 thẻ) --- */
         .summary-cards {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(5, 1fr);
+            /* Chia đều cho 5 cột */
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -304,7 +346,6 @@ function format_currency($amount)
             color: #6c757d;
             display: flex;
             flex-direction: column;
-            /* Đổi thành cột để COD và Tổng cộng xuống dòng */
             gap: 2px;
             border-top: 1px dashed #eee;
             padding-top: 5px;
@@ -322,7 +363,6 @@ function format_currency($amount)
             justify-content: space-between;
         }
 
-        /* Màu cho từng thẻ */
         .card-cho-lay {
             border-top-color: #ff9800;
         }
@@ -347,7 +387,6 @@ function format_currency($amount)
             border-top-color: #dc3545;
         }
 
-        /* --- Biểu đồ lớn (Placeholders) --- */
         .chart-row {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -386,6 +425,43 @@ function format_currency($amount)
             font-size: 40px;
             margin-bottom: 10px;
         }
+
+        /* CSS MỚI CHO BIỂU ĐỒ & BẢNG */
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+
+        .cod-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .cod-table th,
+        .cod-table td {
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .cod-table th {
+            background-color: #f9f9f9;
+            color: #555;
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .cod-table .cod-value {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .cod-table .total-value {
+            color: #007bff;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -396,7 +472,7 @@ function format_currency($amount)
         <div class="dashboard-container">
             <div class="topbar">
                 <div class="search-box">
-                    <h1>Tổng quan vận chuyển</h1>
+                    <h1>Vận chuyển</h1>
                 </div>
                 <div class="user-box">
                     <i class="fa-regular fa-bell"></i>
@@ -436,9 +512,8 @@ function format_currency($amount)
             </div>
 
             <div class="summary-cards">
-
                 <div class="summary-card card-cho-lay">
-                    <h3>Chờ lấy hàng</h3>
+                    <h3>Chờ xác nhận</h3>
                     <p><?= htmlspecialchars($data['cho_lay_hang_count']) ?></p>
                     <div class="cod-info">
                         <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['cho_lay_hang_cod']) ?></span></span>
@@ -446,12 +521,12 @@ function format_currency($amount)
                     </div>
                 </div>
 
-                <div class="summary-card card-da-lay">
-                    <h3>Đã lấy hàng</h3>
-                    <p><?= htmlspecialchars($data['da_lay_hang_count']) ?></p>
+                <div class="summary-card card-da-hoan-hang">
+                    <h3>Đang chuẩn bị hàng</h3>
+                    <p><?= htmlspecialchars($data['da_hoan_hang_count']) ?></p>
                     <div class="cod-info">
-                        <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['da_lay_hang_cod']) ?></span></span>
-                        <span class="total-line">Tổng: <span class="total-value"><?= format_currency($data['da_lay_hang_total']) ?></span></span>
+                        <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['da_hoan_hang_cod']) ?></span></span>
+                        <span class="total-line">Tổng: <span class="total-value"><?= format_currency($data['da_hoan_hang_total']) ?></span></span>
                     </div>
                 </div>
 
@@ -464,21 +539,12 @@ function format_currency($amount)
                     </div>
                 </div>
 
-                <div class="summary-card card-cho-giao-lai">
-                    <h3>Chờ giao lại</h3>
-                    <p><?= htmlspecialchars($data['cho_giao_lai_count']) ?></p>
+                <div class="summary-card card-da-lay">
+                    <h3>Đã giao hàng</h3>
+                    <p><?= htmlspecialchars($data['da_lay_hang_count']) ?></p>
                     <div class="cod-info">
-                        <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['cho_giao_lai_cod']) ?></span></span>
-                        <span class="total-line">Tổng: <span class="total-value"><?= format_currency($data['cho_giao_lai_total']) ?></span></span>
-                    </div>
-                </div>
-
-                <div class="summary-card card-da-hoan-hang">
-                    <h3>Đã hoàn hàng</h3>
-                    <p><?= htmlspecialchars($data['da_hoan_hang_count']) ?></p>
-                    <div class="cod-info">
-                        <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['da_hoan_hang_cod']) ?></span></span>
-                        <span class="total-line">Tổng: <span class="total-value"><?= format_currency($data['da_hoan_hang_total']) ?></span></span>
+                        <span class="cod-line">COD: <span class="cod-value"><?= format_currency($data['da_lay_hang_cod']) ?></span></span>
+                        <span class="total-line">Tổng: <span class="total-value"><?= format_currency($data['da_lay_hang_total']) ?></span></span>
                     </div>
                 </div>
 
@@ -494,12 +560,52 @@ function format_currency($amount)
 
             <div class="chart-row">
                 <div class="chart-card">
+                    <h3>Tỉ lệ đơn hàng theo Trạng thái (Tổng quan)</h3>
+                    <div class="chart-container">
+                        <canvas id="orderStatusChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3>💰 Thống kê COD & Giá trị đơn hàng</h3>
+                    <div style="height: 250px; overflow-y: auto;">
+                        <table class="cod-table">
+                            <thead>
+                                <tr>
+                                    <th>Trạng thái</th>
+                                    <th>Đơn hàng</th>
+                                    <th>COD (Phải thu)</th>
+                                    <th>Tổng giá trị</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($statuses_chart as $key => $info):
+                                    $count = $stats_data_chart[$key]['count'] ?? 0;
+                                    $cod = $stats_data_chart[$key]['cod'] ?? 0;
+                                    $total = $stats_data_chart[$key]['total'] ?? 0;
+                                ?>
+                                    <tr>
+                                        <td><?= $info['text'] ?></td>
+                                        <td><?= number_format($count) ?></td>
+                                        <td class="cod-value"><?= format_currency($cod) ?></td>
+                                        <td class="total-value"><?= format_currency($total) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-card">
                     <h3>Thời gian lấy hàng thành công trung bình</h3>
                     <div class="placeholder">
                         <i class="fa-solid fa-chart-pie"></i>
                         <p>Chưa có dữ liệu báo cáo</p>
                     </div>
                 </div>
+
                 <div class="chart-card">
                     <h3>Thời gian giao hàng thành công trung bình</h3>
                     <div class="placeholder">
@@ -509,26 +615,65 @@ function format_currency($amount)
                 </div>
             </div>
 
-            <div class="chart-row">
-                <div class="chart-card">
-                    <h3>Tỉ lệ giao hàng thành công</h3>
-                    <div class="placeholder">
-                        <p>Tổng đơn hàng: **<?= htmlspecialchars($data['total_orders']) ?>**</p>
-                        <p>Chưa có dữ liệu báo cáo</p>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Tỉ trọng vận đơn</h3>
-                    <div class="placeholder">
-                        <p>Chưa có dữ liệu báo cáo</p>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
 
     <script>
+        // Toggle user dropdown menu
+        function toggleUserMenu() {
+            const userMenu = document.querySelector('.user-menu');
+            userMenu.classList.toggle('active');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const userMenu = document.querySelector('.user-menu');
+            const userBtn = document.querySelector('.user-menu-btn');
+            if (!userMenu.contains(event.target) && !userBtn.contains(event.target)) {
+                userMenu.classList.remove('active');
+            }
+        });
+
+        // Logout function
+        function logoutUser() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                window.location.href = 'login.php';
+            }
+        }
+
+        // --- VẼ BIỂU ĐỒ TRÒN (TỪ PHẦN 2) ---
+        const labels = <?= $js_labels ?>;
+        const data = <?= $js_counts ?>;
+        const colors = <?= $js_colors ?>;
+
+        const ctx = document.getElementById('orderStatusChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20
+                        }
+                    },
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        });
+
         // Toggle user dropdown menu
         function toggleUserMenu() {
             const userMenu = document.querySelector('.user-menu');

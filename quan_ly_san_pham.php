@@ -976,7 +976,7 @@ $result = $stmt->get_result();
 
         // Script LOGOUT (GIỮ NGUYÊN)
         function logoutUser() {
-            window.location.href = "logout.php";
+            window.location.href = "login.php";
         }
 
         // --- LOGIC CHECKBOX VÀ XÓA NHANH (GIỮ NGUYÊN) ---

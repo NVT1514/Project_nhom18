@@ -152,49 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     }
     $active_tab = 'password';
 }
-
-/* ===============================================================
-   QUẢN LÝ TÀI KHOẢN NGÂN HÀNG
-=============================================================== */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_account'])) {
-    $bank_name = mysqli_real_escape_string($conn, $_POST['bank_name']);
-    $account_number = mysqli_real_escape_string($conn, $_POST['account_number']);
-    $display_name = mysqli_real_escape_string($conn, $_POST['display_name']);
-
-    $insert_sql = "INSERT INTO user_bank_accounts (user_id, bank_name, account_number, display_name) 
-                   VALUES ('$user_id', '$bank_name', '$account_number', '$display_name')";
-    if (mysqli_query($conn, $insert_sql)) {
-        $success_message = "Thêm tài khoản ngân hàng thành công!";
-        header("Location: profile.php?tab=bank_account");
-        exit();
-    } else {
-        $error_message = "Lỗi khi thêm tài khoản: " . mysqli_error($conn);
-    }
-}
-
-if (isset($_GET['delete'])) {
-    $account_id = (int)$_GET['delete'];
-    $delete_sql = "DELETE FROM user_bank_accounts WHERE id = $account_id AND user_id = $user_id LIMIT 1";
-    if (mysqli_query($conn, $delete_sql)) {
-        $success_message = "Xóa tài khoản ngân hàng thành công!";
-        header("Location: profile.php?tab=bank_account");
-        exit();
-    } else {
-        $error_message = "Lỗi khi xóa tài khoản: " . mysqli_error($conn);
-    }
-}
-
-// Lấy danh sách tài khoản ngân hàng
-$list_sql = "SELECT id, bank_name, account_number, display_name 
-             FROM user_bank_accounts 
-             WHERE user_id = $user_id 
-             ORDER BY id DESC";
-$result = mysqli_query($conn, $list_sql);
-
-if ($result === false) {
-    $error_message = "Lỗi truy vấn danh sách tài khoản: " . mysqli_error($conn);
-}
-
 // Giữ trạng thái tab
 if (isset($_GET['tab'])) {
     $active_tab = $_GET['tab'];
@@ -304,7 +261,7 @@ if (isset($_GET['tab'])) {
                     <div class="card-body">
                         <form method="post" enctype="multipart/form-data">
                             <div class="avatar-container mx-auto">
-                                <img src="<?= htmlspecialchars($avatar) ?>" alt="Avatar người dùng" id="current_avatar">
+                                <img src="<?= htmlspecialchars($avatar) ?>" id="current_avatar">
                                 <input type="file" name="new_avatar" id="new_avatar_input" class="file-upload-overlay" accept="image/jpeg, image/png">
                             </div>
                             <h4 class="card-title"><?= htmlspecialchars($ho_ten ?: $tai_khoan) ?></h4>
@@ -331,9 +288,6 @@ if (isset($_GET['tab'])) {
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link <?= $active_tab == 'password' ? 'active' : '' ?>" id="password-tab" data-bs-toggle="tab" data-bs-target="#password-pane" type="button" role="tab" aria-controls="password-pane" aria-selected="<?= $active_tab == 'password' ? 'true' : 'false' ?>">Đổi Mật Khẩu</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link <?= $active_tab == 'bank_account' ? 'active' : '' ?>" id="bank-tab" data-bs-toggle="tab" data-bs-target="#bank-pane" type="button" role="tab" aria-controls="bank-pane" aria-selected="<?= $active_tab == 'bank_account' ? 'true' : 'false' ?>">Tài khoản Ngân hàng</button>
                             </li>
                         </ul>
                     </div>
@@ -376,77 +330,6 @@ if (isset($_GET['tab'])) {
                                     </div>
                                     <button type="submit" class="btn btn-warning">Đổi Mật Khẩu</button>
                                 </form>
-                            </div>
-
-                            <div class="tab-pane fade <?= $active_tab == 'bank_account' ? 'show active' : '' ?>" id="bank-pane" role="tabpanel" aria-labelledby="bank-tab" tabindex="0">
-                                <div class="bank-account-section">
-                                    <div class="card mb-4">
-                                        <div class="card-header bg-success text-white">Thêm tài khoản ngân hàng</div>
-                                        <div class="card-body">
-                                            <form method="post" class="row g-3">
-                                                <input type="hidden" name="add_account" value="1">
-                                                <div class="col-md-4">
-                                                    <select name="bank_name" class="form-select" required>
-                                                        <option value="" disabled selected>Chọn ngân hàng</option>
-                                                        <option>VietcomBank</option>
-                                                        <option>MbBank</option>
-                                                        <option>ViettinBank</option>
-                                                        <option>Momo</option>
-                                                        <option>VNPay</option>
-                                                        <option>AgriBank</option>
-                                                        <option>TpBank</option>
-                                                        <option>Sacombank</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <input type="text" name="account_number" class="form-control" placeholder="Số tài khoản" required>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <input type="text" name="display_name" class="form-control" placeholder="Tên hiển thị (Tên chủ TK)" required>
-                                                </div>
-                                                <div class="col-12">
-                                                    <button type="submit" name="add_account" class="btn btn-success">Thêm tài khoản</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-
-                                    <div class="card">
-                                        <div class="card-header">Danh sách tài khoản ngân hàng đã liên kết</div>
-                                        <div class="card-body table-responsive">
-                                            <table class="table table-bordered table-striped align-middle">
-                                                <thead class="table-primary">
-                                                    <tr>
-                                                        <th>ID</th>
-                                                        <th>Ngân hàng</th>
-                                                        <th>Số tài khoản</th>
-                                                        <th>Tên hiển thị</th>
-                                                        <th>Hành động</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php if ($result && mysqli_num_rows($result) > 0): ?>
-                                                        <?php while ($row = mysqli_fetch_assoc($result)): ?>
-                                                            <tr>
-                                                                <td><?= $row['id'] ?></td>
-                                                                <td><?= htmlspecialchars($row['bank_name']) ?></td>
-                                                                <td><?= htmlspecialchars($row['account_number']) ?></td>
-                                                                <td><?= htmlspecialchars($row['display_name']) ?></td>
-                                                                <td>
-                                                                    <a href="?delete=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc muốn xóa tài khoản này?')">Xóa</a>
-                                                                </td>
-                                                            </tr>
-                                                        <?php endwhile; ?>
-                                                    <?php else: ?>
-                                                        <tr>
-                                                            <td colspan="5" class="text-center">Chưa có tài khoản ngân hàng nào được liên kết.</td>
-                                                        </tr>
-                                                    <?php endif; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>

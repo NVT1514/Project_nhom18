@@ -3,114 +3,215 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 include "Database/connectdb.php";
-// BỔ SUNG: Include hàm ghi log từ file gốc (giả định file log_activity.php tồn tại)
-// Nếu không tồn tại, bạn cần tạo file này hoặc loại bỏ dòng này.
+
 if (file_exists("Database/log_activity.php")) {
     include "Database/log_activity.php";
 } else {
-    // Định nghĩa hàm rỗng nếu không có log_activity.php để tránh lỗi
     function log_activity($conn, $category, $action) {}
 }
 
-
-// ================== ĐỊNH NGHĨA TRẠNG THÁI (MAPPING) - BỔ SUNG ==================
-// 0: Chờ xác nhận, 4: Đang chuẩn bị, 1: Đang giao, 2: Đã giao, 3: Đã hủy
+// ================== ĐỊNH NGHĨA TRẠNG THÁI (MAPPING) ==================
+// 1: Chờ xác nhận, 2: Đang chuẩn bị, 3: Đang giao, 4: Đã giao, 0: Đã hủy
 $statuses = [
-    0 => ['text' => 'Chờ xác nhận', 'class' => 'pending', 'label' => 'Chờ xác nhận'],
-    4 => ['text' => 'Đang chuẩn bị hàng', 'class' => 'preparing', 'label' => 'Đang chuẩn bị hàng'],
-    1 => ['text' => 'Đang giao', 'class' => 'shipping', 'label' => 'Đang giao'],
-    2 => ['text' => 'Đã giao', 'class' => 'done', 'label' => 'Đã giao'],
-    3 => ['text' => 'Đã hủy', 'class' => 'cancelled', 'label' => 'Đã hủy']
+    1 => ['text' => 'Chờ xác nhận', 'class' => 'pending', 'label' => 'Chờ xác nhận'],
+    2 => ['text' => 'Đang chuẩn bị hàng', 'class' => 'preparing', 'label' => 'Đang chuẩn bị hàng'],
+    3 => ['text' => 'Đang giao', 'class' => 'shipping', 'label' => 'Đang giao'],
+    4 => ['text' => 'Đã giao', 'class' => 'done', 'label' => 'Đã giao'],
+    0 => ['text' => 'Đã hủy', 'class' => 'cancelled', 'label' => 'Đã hủy']
 ];
-// Sắp xếp trạng thái trong dropdown theo key (0, 1, 2, 3, 4)
 ksort($statuses);
 
+// ================== CÁC HÀM XỬ LÝ KHO ĐÃ SỬA TÊN CỘT ==================
 
-// ================== XỬ LÝ CẬP NHẬT TRẠNG THÁI (TỪ DROPDOWN) - BỔ SUNG ==================
-// ... (Giữ nguyên logic xử lý cập nhật trạng thái) ...
-// Dùng cho dropdown của từng đơn hàng
+/**
+ * Lấy trạng thái hiện tại của đơn hàng.
+ */
+function get_current_status($conn, $order_id)
+{
+    $sql = "SELECT status FROM don_hang WHERE id = ? LIMIT 1";
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param("i", $order_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $status = $result->fetch_assoc()['status'] ?? null;
+        $stmt->close();
+        return $status;
+    }
+    return null;
+}
+
+/**
+ * Lấy chi tiết sản phẩm và số lượng từ đơn hàng.
+ */
+function get_order_details($conn, $order_id)
+{
+    $details = [];
+    $sql = "SELECT product_id, quantity FROM chi_tiet_don_hang WHERE order_id = ?";
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param("i", $order_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $details[] = $row;
+        }
+        $stmt->close();
+    }
+    return $details;
+}
+
+/**
+ * Hoàn lại số lượng tồn kho (status -> 0: Đã hủy).
+ * Tăng SỐ LƯỢNG TỒN KHO (`so_luong`) và Giảm SỐ LƯỢNG ĐÃ BÁN (`so_luong_ban`).
+ */
+function restore_inventory($conn, $order_id)
+{
+    $products = get_order_details($conn, $order_id);
+    foreach ($products as $item) {
+        $product_id = $item['product_id'];
+        $quantity = $item['quantity'];
+
+        // SỬA TÊN CỘT: Cập nhật bảng san_pham: Hoàn kho (so_luong +), Giảm đã bán (so_luong_ban -)
+        $sql = "UPDATE san_pham SET so_luong = so_luong + ?, so_luong_ban = so_luong_ban - ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param("iii", $quantity, $quantity, $product_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+}
+
+/**
+ * Trừ số lượng tồn kho (1 -> 2, 3, 4: Đang xử lý/Đã bán).
+ * Giảm SỐ LƯỢNG TỒN KHO (`so_luong`) và Tăng SỐ LƯỢNG ĐÃ BÁN (`so_luong_ban`).
+ */
+function deduct_inventory($conn, $order_id)
+{
+    $products = get_order_details($conn, $order_id);
+    foreach ($products as $item) {
+        $product_id = $item['product_id'];
+        $quantity = $item['quantity'];
+
+        // SỬA TÊN CỘT: Cập nhật bảng san_pham: Trừ kho (so_luong -), Tăng đã bán (so_luong_ban +)
+        $sql = "UPDATE san_pham SET so_luong = so_luong - ?, so_luong_ban = so_luong_ban + ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param("iii", $quantity, $quantity, $product_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+}
+
+// ================== XỬ LÝ CẬP NHẬT TRẠNG THÁI ==================
 if (isset($_POST['update_status'])) {
     $order_id = filter_var($_POST['order_id'], FILTER_SANITIZE_NUMBER_INT);
     $new_status = filter_var($_POST['new_status'], FILTER_SANITIZE_NUMBER_INT);
 
     if ($order_id && isset($statuses[$new_status])) {
+
+        $old_status = get_current_status($conn, $order_id);
+        $inventory_action = "";
+
+        // 1. Logic HOÀN KHO (Chuyển sang ĐÃ HỦY: status = 0)
+        if ($old_status != 0 && $new_status == 0) {
+            restore_inventory($conn, $order_id);
+            $inventory_action = " (Đã hoàn kho)";
+        }
+
+        // 2. Logic TRỪ KHO (Chuyển từ CHỜ XÁC NHẬN: status = 1 sang 2, 3, 4)
+        elseif ($old_status == 1 && in_array($new_status, [2, 3, 4])) {
+            deduct_inventory($conn, $order_id);
+            $inventory_action = " (Đã trừ kho)";
+        }
+
+        // 3. Logic TRỪ KHO (Chuyển từ ĐÃ HỦY: status = 0 sang 1: Chờ xác nhận) - Khôi phục
+        elseif ($old_status == 0 && $new_status == 1) {
+            deduct_inventory($conn, $order_id);
+            $inventory_action = " (Đã trừ kho)";
+        }
+
+        // 4. Cập nhật trạng thái đơn hàng trong DB
         $update_sql = "UPDATE don_hang SET status = ? WHERE id = ?";
         $stmt_update = $conn->prepare($update_sql);
         $stmt_update->bind_param("ii", $new_status, $order_id);
 
         if ($stmt_update->execute()) {
             $status_name = $statuses[$new_status]['text'] ?? 'Không xác định';
-            $log_action = "đã cập nhật trạng thái đơn hàng #$order_id thành: **$status_name**";
+            $log_action = "đã cập nhật trạng thái đơn hàng #$order_id thành: **$status_name**" . $inventory_action;
             log_activity($conn, "Quản lý Đơn hàng", $log_action);
         }
 
         $stmt_update->close();
-        // Giữ lại tham số phân trang nếu có
         $redirect_url = $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET);
         header("Location: " . $redirect_url);
         exit();
     }
 }
 
-// Xử lý cập nhật trạng thái giao hàng thành công
+// Xử lý đánh dấu đã giao (status = 4)
 if (isset($_POST['mark_done'])) {
     $order_id = filter_var($_POST['order_id'], FILTER_SANITIZE_NUMBER_INT);
     if ($order_id) {
-        $new_status = 2;
+        $new_status = 4; // Đã giao
+        $old_status = get_current_status($conn, $order_id);
+        $inventory_action = "";
+
+        // Trừ kho nếu trạng thái cũ là Chờ xác nhận (1)
+        if ($old_status == 1) {
+            deduct_inventory($conn, $order_id);
+            $inventory_action = " (Đã trừ kho)";
+        }
+
         $update_sql = "UPDATE don_hang SET status = ? WHERE id = ?";
         $stmt_mark_done = $conn->prepare($update_sql);
-        $stmt_mark_done->bind_param("i", $new_status, $order_id);
+        $stmt_mark_done->bind_param("ii", $new_status, $order_id);
 
         if ($stmt_mark_done->execute()) {
             $status_name = $statuses[$new_status]['text'] ?? 'Đã giao';
-            $log_action = "đã đánh dấu đơn hàng #$order_id là: **$status_name**";
+            $log_action = "đã đánh dấu đơn hàng #$order_id là: **$status_name**" . $inventory_action;
             log_activity($conn, "Quản lý Đơn hàng", $log_action);
         }
         $stmt_mark_done->close();
-        // Giữ lại tham số phân trang nếu có
         $redirect_url = $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET);
         header("Location: " . $redirect_url);
         exit();
     }
 }
 
-
-// --- Xử lý Bộ lọc Ngày/Tháng và Khởi tạo biến cho Prepared Statement ---
+// --- Xử lý Bộ lọc Ngày/Tháng ---
 $filter_sql = "";
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 $params = [];
 $param_types = '';
 
-// Nếu có ngày bắt đầu và ngày kết thúc hợp lệ, tạo điều kiện lọc
 if ($start_date && $end_date) {
-    // Điều kiện lọc
     $filter_sql = " AND created_at >= ? AND created_at <= ?";
-    // Giá trị binding: ngày bắt đầu và ngày kết thúc (cộng thêm 23:59:59 để bao gồm cả ngày cuối)
     $params[] = $start_date;
     $params[] = $end_date . ' 23:59:59';
-    $param_types = 'ss'; // Cả hai tham số đều là string
+    $param_types = 'ss';
 }
 
-// Hàm để lấy giá trị cho trường input ngày
 function get_date_value($key)
 {
     return isset($_GET[$key]) ? htmlspecialchars($_GET[$key]) : '';
 }
 
-// --- 1. Lấy Thống kê Tổng quan (Áp dụng bộ lọc) - Giữ nguyên ---
+// --- 1. Lấy Thống kê Tổng quan ---
 $stats_sql = "
     SELECT
-        COUNT(CASE WHEN status IN (0, 4) THEN 1 END) AS processing_count, 
-        COUNT(CASE WHEN status = 1 THEN 1 END) AS shipping_count,
-        COUNT(CASE WHEN status = 2 THEN 1 END) AS done_count,
-        COUNT(CASE WHEN status = 3 THEN 1 END) AS cancelled_count
+        COUNT(CASE WHEN status IN (1, 2) THEN 1 END) AS processing_count, 
+        COUNT(CASE WHEN status = 3 THEN 1 END) AS shipping_count,
+        COUNT(CASE WHEN status = 4 THEN 1 END) AS done_count,
+        COUNT(CASE WHEN status = 0 THEN 1 END) AS cancelled_count
     FROM don_hang WHERE 1=1 {$filter_sql}
 ";
 
 $stmt_stats = $conn->prepare($stats_sql);
 if ($filter_sql) {
-    // Nếu có bộ lọc, bind parameters
     $stmt_stats->bind_param($param_types, ...$params);
 }
 $stmt_stats->execute();
@@ -118,14 +219,12 @@ $stats_result = $stmt_stats->get_result();
 $stats = $stats_result->fetch_assoc();
 $stmt_stats->close();
 
-
-// ================== BỔ SUNG: XỬ LÝ PHÂN TRANG ==================
-$limit = 5; // Số đơn hàng mỗi trang
+// ================== PHÂN TRANG ==================
+$limit = 5;
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-
-// --- 2. Lấy Tổng số đơn hàng (Áp dụng bộ lọc) ---
+// --- 2. Lấy Tổng số đơn hàng ---
 $count_sql = "SELECT COUNT(id) AS total FROM don_hang WHERE 1=1 {$filter_sql}";
 
 $stmt_count = $conn->prepare($count_sql);
@@ -137,10 +236,8 @@ $count_result = $stmt_count->get_result();
 $total_orders = $count_result->fetch_assoc()['total'];
 $stmt_count->close();
 
-// Tính tổng số trang
 $total_pages = ceil($total_orders / $limit);
 
-// Điều chỉnh trang nếu không hợp lệ
 if ($page > $total_pages && $total_pages > 0) {
     $page = $total_pages;
     $offset = ($page - 1) * $limit;
@@ -149,22 +246,17 @@ if ($page > $total_pages && $total_pages > 0) {
     $offset = 0;
 }
 
-
-// --- 3. Lấy danh sách đơn hàng (Áp dụng bộ lọc và PHÂN TRANG) ---
+// --- 3. Lấy danh sách đơn hàng ---
 $sql = "SELECT id, order_id, status, created_at FROM don_hang WHERE 1=1 {$filter_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?";
 
 $stmt = $conn->prepare($sql);
 
-// Cập nhật param_types và params để thêm LIMIT và OFFSET (cả hai đều là integer)
 $current_param_types = $param_types . 'ii';
 $current_params = array_merge($params, [$limit, $offset]);
 
-// Dùng call_user_func_array để bind_param vì số lượng tham số là động
 if ($current_params) {
-    // Thêm $current_param_types vào đầu mảng tham số cho bind_param
     array_unshift($current_params, $current_param_types);
 
-    // Gán tham chiếu cho các tham số (bắt buộc cho bind_param)
     $bind_params = [];
     foreach ($current_params as $key => $value) {
         $bind_params[$key] = &$current_params[$key];
@@ -185,7 +277,7 @@ $result = $stmt->get_result();
     <title>Quản lý đơn hàng</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        /* CSS CŨ (Giữ nguyên) */
+        /* CSS được giữ nguyên */
         body {
             font-family: "Segoe UI", sans-serif;
             background: #f6f8fa;
@@ -201,7 +293,6 @@ $result = $stmt->get_result();
 
         .order-container {
             width: 900px;
-            /* Tăng chiều rộng để chứa phần thống kê và lọc */
             background: #fff;
             border-radius: 12px;
             padding: 25px 30px;
@@ -209,7 +300,6 @@ $result = $stmt->get_result();
             margin: 0 auto;
         }
 
-        /* ... (Giữ nguyên CSS cũ) ... */
         .topbar {
             position: fixed;
             top: 0;
@@ -242,9 +332,9 @@ $result = $stmt->get_result();
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            object-fit: cover;
         }
 
-        /* ==== USER DROPDOWN ==== */
         .user-menu {
             position: relative;
         }
@@ -346,7 +436,6 @@ $result = $stmt->get_result();
             color: #898c95ff;
         }
 
-
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -360,31 +449,25 @@ $result = $stmt->get_result();
             border-bottom: 1px solid #eee;
         }
 
-        /* Điều chỉnh độ rộng cột của bảng cũ */
         .table th:nth-child(1),
         .table td:nth-child(1) {
             width: 25%;
         }
 
-        /* Mã đơn */
         .table th:nth-child(2),
         .table td:nth-child(2) {
             width: 25%;
         }
 
-        /* Trạng thái */
         .table th:nth-child(3),
         .table td:nth-child(3) {
             width: 25%;
         }
 
-        /* Xem chi tiết */
         .table th:nth-child(4),
         .table td:nth-child(4) {
             width: 25%;
         }
-
-        /* Hành động */
 
         .table th {
             background: #007bff;
@@ -405,34 +488,26 @@ $result = $stmt->get_result();
             white-space: nowrap;
         }
 
-        /* MÀU TRẠNG THÁI CẬP NHẬT: Thêm Đã Hủy */
         .status.pending {
             background-color: #ff9800;
         }
 
-        /* Chờ xác nhận */
         .status.shipping {
             background-color: #03a9f4;
         }
 
-        /* Chờ giao hàng/Đang giao hàng */
         .status.done {
             background-color: #4caf50;
         }
 
-        /* Giao hàng thành công */
         .status.cancelled {
             background-color: #f44336;
         }
 
-        /* Đã hủy */
-        /* BỔ SUNG: CSS cho trạng thái "Đang chuẩn bị hàng" (4) */
         .status.preparing {
             background-color: #6c757d;
-            /* Xám */
         }
 
-        /* BỔ SUNG: CSS cho stat-card */
         .stat-pending {
             border-left-color: #ff9800;
         }
@@ -465,7 +540,6 @@ $result = $stmt->get_result();
             color: #f44336;
         }
 
-        /* BỔ SUNG: CSS cho trạng thái "Đang chuẩn bị hàng" (4) */
         .stat-preparing {
             border-left-color: #6c757d;
         }
@@ -473,9 +547,6 @@ $result = $stmt->get_result();
         .stat-preparing p {
             color: #6c757d;
         }
-
-        /* KẾT THÚC BỔ SUNG CSS */
-
 
         .btn {
             background: #007bff;
@@ -509,8 +580,6 @@ $result = $stmt->get_result();
             padding: 20px;
         }
 
-        /* --- CSS MỚI: Thống kê và Bộ lọc --- */
-
         .order-stats {
             display: flex;
             justify-content: space-between;
@@ -527,7 +596,6 @@ $result = $stmt->get_result();
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
             border: 1px solid #e9ecef;
             border-left: 5px solid;
-            /* Dùng cho màu trạng thái */
         }
 
         .stat-card h3 {
@@ -543,8 +611,6 @@ $result = $stmt->get_result();
             margin: 0;
         }
 
-
-        /* Bộ lọc */
         .filter-form {
             display: flex;
             gap: 10px;
@@ -597,7 +663,6 @@ $result = $stmt->get_result();
             background: #5a6268;
         }
 
-        /* CSS PHÂN TRANG MỚI */
         .pagination {
             display: flex;
             justify-content: center;
@@ -646,7 +711,7 @@ $result = $stmt->get_result();
         <div class="order-container">
             <div class="topbar">
                 <div class="search-box">
-                    <h1>Danh sách đơn hàng</h1>
+                    <h1>Quản lý đơn hàng</h1>
                 </div>
                 <div class="user-box">
                     <i class="fa-regular fa-bell"></i>
@@ -715,7 +780,7 @@ $result = $stmt->get_result();
                     <?php while ($row = $result->fetch_assoc()): ?>
                         <?php
                         $current_status = $row['status'];
-                        $status_info = $statuses[$current_status] ?? $statuses[0]; // Mặc định là 0
+                        $status_info = $statuses[$current_status] ?? $statuses[1];
                         $status_text = $status_info['text'];
                         $status_class = $status_info['class'];
                         ?>
@@ -729,7 +794,7 @@ $result = $stmt->get_result();
                             </td>
 
                             <td>
-                                <?php if ($current_status == 2 || $current_status == 3): ?>
+                                <?php if ($current_status == 4 || $current_status == 0): ?>
                                     <span class="status <?= $status_class ?>"><?= $status_info['label'] ?></span>
                                 <?php else: ?>
                                     <form method="POST" action="<?= $_SERVER['PHP_SELF'] . '?' . http_build_query($_GET) ?>" style="display:inline;">
@@ -739,8 +804,11 @@ $result = $stmt->get_result();
                                         <select name="new_status" class="action-select" onchange="this.form.submit()" style="padding: 8px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; font-size: 14px;">
                                             <?php foreach ($statuses as $key => $status): ?>
                                                 <?php
-                                                // Loại bỏ trạng thái 'Đã hủy' (3) khỏi dropdown nếu đơn hàng đã 'Đang giao' (1) hoặc 'Đang chuẩn bị' (4)
-                                                if ($key == 3 && ($current_status == 1 || $current_status == 4)) continue;
+                                                // Không cho phép chuyển từ Đang chuẩn bị (2) hoặc Đang giao (3) về Chờ xác nhận (1)
+                                                if ($key == 1 && ($current_status == 2 || $current_status == 3)) continue;
+
+                                                // Loại bỏ trạng thái 'Đã hủy' (0) khỏi dropdown nếu đơn hàng đã 'Đang giao' (3)
+                                                if ($key == 0 && $current_status == 3) continue;
                                                 ?>
                                                 <option
                                                     value="<?= $key ?>"
@@ -758,14 +826,12 @@ $result = $stmt->get_result();
 
                 <div class="pagination">
                     <?php
-                    // Lấy các tham số lọc hiện tại (trừ 'page')
                     $filter_params = $_GET;
                     unset($filter_params['page']);
                     $query_string = http_build_query($filter_params);
                     $base_url = $_SERVER['PHP_SELF'] . '?' . $query_string . (empty($query_string) ? '' : '&') . 'page=';
 
                     if ($total_pages > 1) {
-                        // Nút Previous
                         $prev_page = $page - 1;
                         if ($page > 1) {
                             echo '<a href="' . $base_url . $prev_page . '">Trước</a>';
@@ -773,7 +839,6 @@ $result = $stmt->get_result();
                             echo '<span class="disabled">Trước</span>';
                         }
 
-                        // Hiển thị các trang (ví dụ: chỉ hiển thị 5 trang xung quanh trang hiện tại)
                         $start = max(1, $page - 2);
                         $end = min($total_pages, $page + 2);
 
@@ -799,7 +864,6 @@ $result = $stmt->get_result();
                             echo '<a href="' . $base_url . $total_pages . '">' . $total_pages . '</a>';
                         }
 
-                        // Nút Next
                         $next_page = $page + 1;
                         if ($page < $total_pages) {
                             echo '<a href="' . $base_url . $next_page . '">Sau</a>';
@@ -816,13 +880,11 @@ $result = $stmt->get_result();
     </div>
 
     <script>
-        // Toggle user dropdown menu
         function toggleUserMenu() {
             const userMenu = document.querySelector('.user-menu');
             userMenu.classList.toggle('active');
         }
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
             const userMenu = document.querySelector('.user-menu');
             const userBtn = document.querySelector('.user-menu-btn');
@@ -831,7 +893,6 @@ $result = $stmt->get_result();
             }
         });
 
-        // Logout function
         function logoutUser() {
             if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
                 window.location.href = 'login.php';
