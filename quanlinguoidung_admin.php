@@ -425,7 +425,7 @@ $conn->close();
                 <h2>👑 Danh sách ADMIN & SUPERADMIN (<?php echo count($admin_users); ?>)</h2>
 
                 <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin'): ?>
-                    <a class="btn update-admin" href="tao_tai_khoan_admin.php"><i class="fa-solid fa-user-plus"></i> + Tạo tài khoản Admin</a>
+                    <a class="btn update-admin" href="tao_tai_khoan_admin.php"><i class="fa-solid fa-user-plus"></i> Thêm tài khoản Admin</a>
                 <?php endif; ?>
 
                 <div class="table-responsive">

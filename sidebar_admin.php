@@ -40,7 +40,7 @@ $avatar_path = !empty($_SESSION['avatar'])
             </div>
             <ul class="submenu">
                 <li><a href="quanlinguoidung_admin.php">Quản lý Admin</a></li>
-                <li><a href="quanliuser.php">Quản lý User</a></li>
+                <li><a href="quanliuser.php">Quản lý khách hàng</a></li>
             </ul>
         </li>
 
@@ -52,20 +52,7 @@ $avatar_path = !empty($_SESSION['avatar'])
             </div>
             <ul class="submenu">
                 <li><a href="quan_ly_don_hang.php">Danh sách đơn hàng</a></li>
-                <li><a href="cap_nhat_trang_thai_don_hang.php">Trạng thái đơn hàng</a></li>
-                <li><a href="chi_tiet_don_hang.php">Chi tiết đơn hàng</a></li>
-            </ul>
-        </li>
-
-        <li>
-            <div class="menu-header">
-                <i class="fa fa-truck"></i>
-                <span>Vận chuyển</span>
-                <i class="fa fa-chevron-right toggle-submenu"></i>
-            </div>
-            <ul class="submenu">
-                <li><a href="van_chuyen.php">Tổng quan vận chuyển</a></li>
-                <li><a href="location.php">Địa điểm vận chuyển</a></li>
+                <li><a href="van_chuyen.php">Vận chuyển</a></li>
             </ul>
         </li>
 
@@ -104,14 +91,16 @@ $avatar_path = !empty($_SESSION['avatar'])
 
         <li>
             <div class="menu-header">
-                <i class="fa fa-bullhorn"></i>
-                <span>Banner & Voucher</span>
-                <i class="fa fa-chevron-right toggle-submenu"></i>
+                <i class="fa fa-home"></i>
+                <a href="quan_ly_banner.php">Banner</a>
             </div>
-            <ul class="submenu">
-                <li><a href="quan_ly_banner.php">Quản lý Banner</a></li>
-                <li><a href="quan_ly_voucher.php">Quản lý Voucher</a></li>
-            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-ticket-simple"></i>
+                <a href="quan_ly_voucher.php">Voucher</a>
+            </div>
         </li>
     </ul>
 
