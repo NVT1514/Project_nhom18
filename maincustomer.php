@@ -457,9 +457,9 @@ $best_selling = lay_san_pham_ban_chay();
         <section class="section-banner">
             <div class="swiper bannerSwiper">
                 <div class="swiper-wrapper">
-                    <div class="swiper-slide"><img src="Img/banner_mau_v5.png" alt=""></div>
+                    <div class="swiper-slide"><img src="Img/banner_mau_v4.png" alt=""></div>
                     <div class="swiper-slide"><img src="Img/banner1.jpg" alt=""></div>
-                    <div class="swiper-slide"><img src="Img/banner2.jpg" alt=""></div>
+                    <div class="swiper-slide"><img src="Img/banner_mau_v5.png" alt=""></div>
                 </div>
                 <div class="swiper-pagination"></div>
             </div>

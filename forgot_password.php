@@ -38,34 +38,39 @@ if (isset($_POST['submit'])) {
 <head>
     <meta charset='UTF-8'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đặt lại Mật khẩu</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Đặt lại Mật khẩu | CLOTHIX</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* CSS NÂNG CẤP GIAO DIỆN */
+        /* CSS ĐÃ ĐƯỢC CHỈNH SỬA ĐỂ KHỚP VỚI GIAO DIỆN CLOTHIX */
         :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --background-color: #f0f2f5;
-            --card-background: #ffffff;
-            --shadow-light: 0 4px 15px rgba(0, 0, 0, 0.1);
+            --color-brand-blue: #092C4C;
+            /* Xanh Navy đậm */
+            --color-text-dark: #333333;
+            --color-white: #ffffff;
+            --color-bg-light: #f7f7f7;
+            /* Nền form đăng nhập */
+            --color-button-blue: #092C4C;
+            /* Màu xanh nút Đặt lại, có thể dùng brand blue */
         }
 
         body {
-            font-family: 'Poppins', Arial, sans-serif;
-            background-color: var(--background-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            color: #333;
+            background-color: var(--color-brand-blue);
+            /* Nền tối đồng bộ với trang login */
+            color: var(--color-text-dark);
         }
 
         .form-container {
-            background: var(--card-background);
+            background: var(--color-white);
             padding: 40px;
             border-radius: 12px;
-            box-shadow: var(--shadow-light);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             width: 100%;
             max-width: 400px;
             text-align: center;
@@ -73,76 +78,82 @@ if (isset($_POST['submit'])) {
 
         h2 {
             font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 25px;
+            color: var(--color-brand-blue);
+            /* Tiêu đề màu Brand Blue */
+            margin-bottom: 30px;
+            font-size: 1.5rem;
         }
 
-        /* Ẩn label và dùng placeholder để form gọn hơn, hoặc dùng label phía trên */
+        /* Đồng bộ kiểu input với trang Đăng nhập */
         label {
             display: block;
             text-align: left;
             margin-bottom: 5px;
             font-weight: 400;
             font-size: 0.9em;
-            color: #555;
-            margin-top: 15px;
-            /* Thêm khoảng cách giữa các trường */
+            color: var(--color-text-dark);
+            margin-top: 20px;
         }
 
         input {
             width: 100%;
-            padding: 12px;
+            padding: 10px 0;
             margin: 0 0 15px 0;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
+            border: none;
+            border-bottom: 1px solid #cccccc;
+            /* Chỉ có border dưới */
+            background-color: transparent;
+            color: var(--color-text-dark);
+            font-size: 1rem;
+            outline: none;
             box-sizing: border-box;
-            /* Đảm bảo padding không làm hỏng width */
-            transition: border-color 0.3s;
-            font-size: 1em;
+            transition: border-bottom-color 0.3s;
         }
 
         input:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-            outline: none;
+            border-bottom: 2px solid var(--color-brand-blue);
+            /* Viền focus màu Brand Blue */
+            box-shadow: none;
+            /* Bỏ box-shadow mặc định của Poppins */
         }
 
+        /* Nút Xác nhận và Đặt lại */
         .submit-btn {
             width: 100%;
             padding: 12px;
-            background: var(--primary-color);
+            background: var(--color-button-blue);
+            /* Giữ màu xanh sáng cho nút hành động chính */
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 5px;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 1.1em;
-            margin-top: 10px;
-            transition: background 0.3s ease, transform 0.1s ease;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 25px;
+            transition: background 0.3s ease;
         }
 
         .submit-btn:hover {
-            background: #0056b3;
+            background: #0d3a66;
         }
 
-        .submit-btn:active {
-            transform: scale(0.99);
-        }
-
+        /* Liên kết Quay lại trang Đăng nhập */
         .back-link {
             display: block;
             margin-top: 25px;
-            font-size: 0.9em;
+            font-size: 0.95rem;
         }
 
         .back-link a {
-            color: var(--secondary-color);
+            color: var(--color-brand-blue);
+            /* Màu Brand Blue cho link */
             text-decoration: none;
             transition: color 0.3s;
         }
 
         .back-link a:hover {
-            color: var(--primary-color);
+            color: #0d3a66;
+            /* Màu đậm hơn khi hover */
             text-decoration: underline;
         }
     </style>
@@ -151,11 +162,12 @@ if (isset($_POST['submit'])) {
 <body>
     <div class="form-container">
         <h2>Quên Mật khẩu</h2>
+
         <form method="POST">
-            <label for="email">Địa chỉ Email:</label>
+            <label for="email">Địa chỉ Email</label>
             <input type="email" id="email" name="email" placeholder="Nhập email đã đăng ký" required>
 
-            <label for="new_password">Mật khẩu mới:</label>
+            <label for="new_password">Mật khẩu mới</label>
             <input type="password" id="new_password" name="new_password" placeholder="Nhập mật khẩu mới" required>
 
             <button type="submit" name="submit" class="submit-btn">

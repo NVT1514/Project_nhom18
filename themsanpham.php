@@ -13,14 +13,15 @@ if (isset($_POST['them_san_pham'])) {
     $mo_ta         = $_POST['mo_ta'];
     $phan_loai     = $_POST['phan_loai'];
     $loai_chinh    = $_POST['loai_chinh'];
-    $so_luong      = $_POST['so_luong']; // ✅ Thêm số lượng
+    $so_luong      = $_POST['so_luong'];
+    $ma_sku        = $_POST['ma_sku']; // ✅ Lấy Mã SKU từ POST
     $hinh_anh      = $_FILES['hinh_anh'];
 
-    // Thêm sản phẩm (có kiểm tra phân loại hợp lệ trong function)
-    $ket_qua = them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong);
+    // Thêm sản phẩm (cần cập nhật hàm them_san_pham để nhận thêm $ma_sku)
+    $ket_qua = them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong, $ma_sku); // ✅ Thêm $ma_sku
 
     if ($ket_qua === true) {
-        echo "<script>alert('✅ Thêm sản phẩm thành công!'); window.location.href='khohang.php';</script>";
+        echo "<script>alert('✅ Thêm sản phẩm thành công!'); window.location.href='quan_ly_kho_hang.php';</script>";
         exit;
     } else {
         echo "<div class='alert alert-danger text-center'>$ket_qua</div>";
@@ -181,12 +182,15 @@ if (isset($_POST['them_san_pham'])) {
             <div class="form-container">
                 <div class="form-header">
                     <h2><i class="fa-solid fa-shirt"></i> Thêm sản phẩm mới</h2>
-                    <a href="ds_sanpham_admin.php" class="btn-list"><i class="fa-solid fa-list"></i> Danh sách sản phẩm</a>
+                    <a href="quan_ly_san_pham.php" class="btn-list"><i class="fa-solid fa-list"></i> Danh sách sản phẩm</a>
                 </div>
 
                 <form action="" method="POST" enctype="multipart/form-data">
                     <label for="ten_san_pham">Tên sản phẩm</label>
                     <input type="text" id="ten_san_pham" name="ten_san_pham" required>
+
+                    <label for="ma_sku">Mã SKU</label>
+                    <input type="text" id="ma_sku" name="ma_sku" required>
 
                     <label for="gia">Giá (VNĐ)</label>
                     <input type="number" id="gia" name="gia" step="0.01" required>

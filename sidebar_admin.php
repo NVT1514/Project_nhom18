@@ -25,27 +25,152 @@ $avatar_path = !empty($_SESSION['avatar'])
     </div>
 
     <ul class="sidebar-menu">
-        <li><i class="fa fa-chart-column"></i><a href="thong_ke.php">Thống kê</a></li>
-        <li><i class="fa fa-users"></i><a href="quanlinguoidung_admin.php">Quản lý người dùng</a></li>
-        <li><i class="fa fa-truck"></i><a href="quan_ly_don_hang.php">Quản lý đơn hàng</a></li>
-        <li><i class="fa fa-product-hunt"></i><a href="ds_sanpham_admin.php">Quản lý sản phẩm</a></li>
-        <li><i class="fa fa-box"></i><a href="phanloaisanpham.php">Quản lý danh mục</a></li>
-        <li><i class="fa fa-warehouse"></i><a href="khohang.php">Kho hàng</a></li>
-        <li><i class="fa fa-image"></i><a href="quan_ly_banner.php">Quản lí Banner</a></li>
-        <li><i class="fa fa-tags"></i><a href="admin_voucher.php">Quản lí Voucher</a></li>
-        <li><i class="fa fa-user"></i><a href="maincustomer.php">Trang khách hàng</a></li>
-        <li><i class="fa fa-sign-out-alt"></i><a href="login.php">Đăng xuất</a></li>
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-home"></i>
+                <a href="thong_ke.php">Thống kê</a>
+            </div>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-users"></i>
+                <span>Quản lý người dùng</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="quanlinguoidung_admin.php">Quản lý Admin</a></li>
+                <li><a href="quanliuser.php">Quản lý User</a></li>
+            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-clipboard"></i>
+                <span>Đơn hàng</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="quan_ly_don_hang.php">Danh sách đơn hàng</a></li>
+                <li><a href="cap_nhat_trang_thai_don_hang.php">Trạng thái đơn hàng</a></li>
+                <li><a href="chi_tiet_don_hang.php">Chi tiết đơn hàng</a></li>
+            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-truck"></i>
+                <span>Vận chuyển</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="van_chuyen.php">Tổng quan vận chuyển</a></li>
+                <li><a href="location.php">Địa điểm vận chuyển</a></li>
+            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-boxes-stacked"></i>
+                <span>Sản phẩm</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="quan_ly_san_pham.php">Danh sách sản phẩm</a></li>
+                <li><a href="themsanpham.php">Thêm sản phẩm</a></li>
+            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-warehouse"></i>
+                <span>Quản lý kho</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="quan_ly_kho_hang.php">Tồn kho</a></li>
+                <li><a href="nhap_kho.php">Nhập kho</a></li>
+                <li><a href="xuat_kho.php">Xuất kho</a></li>
+                <li><a href="kiem_ke.php">Kiểm kê</a></li>
+            </ul>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-sitemap"></i>
+                <a href="quan_ly_phan_loai.php">Quản lý danh mục</a>
+            </div>
+        </li>
+
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-bullhorn"></i>
+                <span>Banner & Voucher</span>
+                <i class="fa fa-chevron-right toggle-submenu"></i>
+            </div>
+            <ul class="submenu">
+                <li><a href="quan_ly_banner.php">Quản lý Banner</a></li>
+                <li><a href="quan_ly_voucher.php">Quản lý Voucher</a></li>
+            </ul>
+        </li>
+    </ul>
+
+    <!-- Trang khách hàng cố định ở dưới cùng -->
+    <ul class="sidebar-menu sidebar-bottom">
+        <li>
+            <div class="menu-header">
+                <i class="fa fa-globe"></i>
+                <a href="maincustomer.php">Trang khách hàng</a>
+            </div>
+        </li>
     </ul>
 </div>
 
 <script>
+    // 🔹 Xử lý menu cấp 2
+    document.querySelectorAll('.toggle-submenu').forEach(toggle => {
+        toggle.parentElement.addEventListener('click', function(e) {
+            e.preventDefault();
+            const submenu = this.nextElementSibling;
+            const menuItem = this.closest('li');
+
+            // Xóa class active từ tất cả menu-header
+            document.querySelectorAll('.sidebar ul li>.menu-header.active').forEach(header => {
+                header.classList.remove('active');
+            });
+
+            // Toggle class
+            menuItem.classList.toggle('active-submenu');
+            submenu.classList.toggle('show');
+
+            // Đóng các submenu khác
+            document.querySelectorAll('.sidebar ul li.active-submenu').forEach(item => {
+                if (item !== menuItem) {
+                    item.classList.remove('active-submenu');
+                    item.querySelector('.submenu').classList.remove('show');
+                }
+            });
+        });
+    });
+
     // 🔹 Đánh dấu menu đang active
     const currentUrl = window.location.href;
     document.querySelectorAll('.sidebar ul li a').forEach(link => {
-        const li = link.parentElement;
         if (currentUrl.includes(link.getAttribute('href'))) {
-            document.querySelectorAll('.sidebar ul li').forEach(l => l.classList.remove('active'));
+            const li = link.closest('li');
+            const menuHeader = li.querySelector('.menu-header');
+
+            // Nếu là submenu, mở parent
+            if (li.closest('.submenu')) {
+                const parentLi = li.closest('.submenu').parentElement;
+                parentLi.classList.add('active-submenu');
+                parentLi.querySelector('.submenu').classList.add('show');
+            }
+
             li.classList.add('active');
+            if (menuHeader) {
+                menuHeader.classList.add('active');
+            }
         }
     });
 </script>

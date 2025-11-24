@@ -7,34 +7,38 @@ include "Database/connectdb.php";
 // Biến lưu từ khóa tìm kiếm
 $search_keyword = isset($_GET['search']) ? trim($_GET['search']) : "";
 
-$admin_users = [];
+$regular_users = [];
 
-// ================== LẤY DỮ LIỆU TÀI KHOẢN ADMIN/SUPERADMIN ==================
-$sql_admin = "SELECT id, Tai_Khoan, Email, role, Ho_Ten, Mat_Khau, trang_thai 
-              FROM user 
-              WHERE role IN ('admin', 'superadmin')";
+// ================== LẤY DỮ LIỆU TÀI KHOẢN USER (KHÁCH HÀNG) ==================
+$sql_user = "SELECT id, Tai_Khoan, Email, role, Ho_Ten, Mat_Khau, phone 
+             FROM user 
+             WHERE role = 'user'";
 
 if (!empty($search_keyword)) {
-    $sql_admin .= " AND (Tai_Khoan LIKE ? OR Email LIKE ? OR Ho_Ten LIKE ?)";
+    $sql_user .= " AND (Tai_Khoan LIKE ? OR Email LIKE ? OR Ho_Ten LIKE ? OR phone LIKE ?)";
 }
-$sql_admin .= " ORDER BY role DESC, id DESC"; // Sắp xếp Superadmin lên trước
+$sql_user .= " ORDER BY id DESC";
 
-$stmt_admin = $conn->prepare($sql_admin);
+$stmt_user = $conn->prepare($sql_user);
+
+if (!$stmt_user) {
+    die("Lỗi prepare SQL: " . $conn->error);
+}
 
 if (!empty($search_keyword)) {
     $like_keyword = "%" . $search_keyword . "%";
-    $stmt_admin->bind_param("sss", $like_keyword, $like_keyword, $like_keyword);
+    $stmt_user->bind_param("ssss", $like_keyword, $like_keyword, $like_keyword, $like_keyword);
 }
 
-$stmt_admin->execute();
-$result_admin = $stmt_admin->get_result();
+$stmt_user->execute();
+$result_user = $stmt_user->get_result();
 
-if ($result_admin->num_rows > 0) {
-    while ($row = $result_admin->fetch_assoc()) {
-        $admin_users[] = $row;
+if ($result_user->num_rows > 0) {
+    while ($row = $result_user->fetch_assoc()) {
+        $regular_users[] = $row;
     }
 }
-$stmt_admin->close();
+$stmt_user->close();
 $conn->close();
 ?>
 
@@ -44,7 +48,7 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Admin</title>
+    <title>Quản Lý Người Dùng</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
@@ -217,51 +221,9 @@ $conn->close();
         }
 
 
-        /* Màu sắc cho quyền Admin */
-        .role-admin {
-            color: #d63384;
+        .role-user {
+            color: #17a2b8;
             font-weight: bold;
-        }
-
-        .role-superadmin {
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        /* Trạng thái hoạt động */
-        .status-badge {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-block;
-        }
-
-        .status-active {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-inactive {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .update-admin {
-            margin-bottom: 20px;
-            display: inline-block;
-            background-color: #16a361ff;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-        }
-
-        .update-admin:hover {
-            background-color: #13653f;
-            text-decoration: none;
         }
 
         .search-form {
@@ -273,18 +235,40 @@ $conn->close();
 
         .search-form input[type="text"] {
             flex: 1;
-            padding: 8px 12px;
+            padding: 10px 15px;
             border: 1px solid #ccc;
             border-radius: 6px;
+            font-size: 14px;
         }
 
         .search-form button {
             background-color: #3498db;
             color: #fff;
             border: none;
-            padding: 8px 15px;
+            padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .search-form button:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-reset {
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: inline-block;
+            background-color: #6c757d;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn-reset:hover {
+            background-color: #5a6268;
+            text-decoration: none;
         }
 
         .user-table {
@@ -308,10 +292,13 @@ $conn->close();
             font-weight: 600;
         }
 
+        .user-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
         .action-buttons {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
         }
 
         .action-buttons button {
@@ -332,45 +319,44 @@ $conn->close();
             background-color: #2980b9;
         }
 
-        .delete-btn {
-            background-color: #e74c3c;
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        .delete-btn:hover {
-            background-color: #c0392b;
+        .stats-card i {
+            font-size: 40px;
+            opacity: 0.8;
         }
 
-        .activate-btn {
-            background-color: #28a745;
-            color: white;
+        .stats-info h3 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: bold;
         }
 
-        .activate-btn:hover {
-            background-color: #218838;
+        .stats-info p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
         }
 
-        .deactivate-btn {
-            background-color: #ffc107;
-            color: #333;
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
         }
 
-        .deactivate-btn:hover {
-            background-color: #e0a800;
-        }
-
-        .btn-reset {
-            text-decoration: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            display: inline-block;
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-reset:hover {
-            background-color: #5a6268;
-            text-decoration: none;
+        .no-data i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -379,10 +365,11 @@ $conn->close();
     <div class="container">
         <?php include 'sidebar_admin.php'; ?>
         <div class="main-content">
-            <div class="user-management-container" style="padding: 20px; margin-bottom: 20px;">
+            <!-- Form tìm kiếm -->
+            <div class="user-management-container" style="padding: 20px;">
                 <div class="topbar">
                     <div class="search-box">
-                        <h1>Quản lý ADMIN & SUPERADMIN</h1>
+                        <h1>Quản lý USER</h1>
                     </div>
                     <div class="user-box">
                         <i class="fa-regular fa-bell"></i>
@@ -409,24 +396,20 @@ $conn->close();
                         </div>
                     </div>
                 </div>
-
-                <h2>🔍 Tìm kiếm</h2>
+                <h2>🔍 Tìm kiếm Người Dùng</h2>
                 <form class="search-form" method="get" action="">
-                    <input type="text" name="search" placeholder="Tìm theo tên, tài khoản hoặc email..."
+                    <input type="text" name="search" placeholder="Tìm theo tên, tài khoản, email hoặc số điện thoại..."
                         value="<?php echo htmlspecialchars($search_keyword); ?>">
                     <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm</button>
                     <?php if (!empty($search_keyword)): ?>
-                        <a href="quanlinguoidung_admin.php" class="btn-reset"><i class="fa-solid fa-undo"></i> Bỏ lọc</a>
+                        <a href="quanliuser.php" class="btn-reset"><i class="fa-solid fa-undo"></i> Bỏ lọc</a>
                     <?php endif; ?>
                 </form>
             </div>
 
+            <!-- Bảng danh sách người dùng -->
             <div class="user-management-container">
-                <h2>👑 Danh sách ADMIN & SUPERADMIN (<?php echo count($admin_users); ?>)</h2>
-
-                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin'): ?>
-                    <a class="btn update-admin" href="tao_tai_khoan_admin.php"><i class="fa-solid fa-user-plus"></i> + Tạo tài khoản Admin</a>
-                <?php endif; ?>
+                <h2>👤 Danh Sách Người Dùng (<?php echo count($regular_users); ?>)</h2>
 
                 <div class="table-responsive">
                     <table class="user-table">
@@ -436,61 +419,35 @@ $conn->close();
                                 <th>Tên đăng nhập</th>
                                 <th>Họ Tên</th>
                                 <th>Email</th>
+                                <th>Số điện thoại</th>
                                 <th>Quyền hạn</th>
-                                <th>Trạng thái</th>
                                 <th>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if (!empty($admin_users)): ?>
-                                <?php foreach ($admin_users as $user): ?>
+                            <?php if (!empty($regular_users)): ?>
+                                <?php foreach ($regular_users as $user): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($user['id']); ?></td>
                                         <td><?php echo htmlspecialchars($user['Tai_Khoan']); ?></td>
                                         <td><?php echo htmlspecialchars($user['Ho_Ten']); ?></td>
                                         <td><?php echo htmlspecialchars($user['Email']); ?></td>
-                                        <td><span class="role-<?php echo htmlspecialchars($user['role']); ?>"><?php echo strtoupper(htmlspecialchars($user['role'])); ?></span></td>
-                                        <td>
-                                            <?php
-                                            $trang_thai = isset($user['trang_thai']) ? $user['trang_thai'] : 1;
-                                            if ($trang_thai == 1):
-                                            ?>
-                                                <span class="status-badge status-active">
-                                                    <i class="fa-solid fa-circle-check"></i> Hoạt động
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="status-badge status-inactive">
-                                                    <i class="fa-solid fa-circle-xmark"></i> Ngừng hoạt động
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
+                                        <td><?php echo !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span style="color: #999;">Chưa cập nhật</span>'; ?></td>
+                                        <td><span class="role-user"><?php echo strtoupper(htmlspecialchars($user['role'])); ?></span></td>
                                         <td class="action-buttons">
                                             <button class="view-btn" onclick="window.location.href='view_user_admin.php?id=<?php echo $user['id']; ?>'">
-                                                <i class="fa-solid fa-eye"></i> Xem
+                                                <i class="fa-solid fa-eye"></i> Xem chi tiết
                                             </button>
-
-                                            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'superadmin' && $user['role'] !== 'superadmin'): ?>
-                                                <?php if ($trang_thai == 1): ?>
-                                                    <button class="deactivate-btn" data-user-id="<?php echo $user['id']; ?>" data-action="deactivate">
-                                                        <i class="fa-solid fa-ban"></i> Ngừng
-                                                    </button>
-                                                <?php else: ?>
-                                                    <button class="activate-btn" data-user-id="<?php echo $user['id']; ?>" data-action="activate">
-                                                        <i class="fa-solid fa-check"></i> Kích hoạt
-                                                    </button>
-                                                <?php endif; ?>
-
-                                                <button class="delete-btn" data-user-id="<?php echo htmlspecialchars($user['id']); ?>">
-                                                    <i class="fa-solid fa-trash"></i> Xóa
-                                                </button>
-                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" style="text-align: center; padding: 20px; color: #999;">
-                                        <i class="fa-solid fa-inbox"></i> Không tìm thấy tài khoản Admin nào phù hợp với từ khóa tìm kiếm.
+                                    <td colspan="7">
+                                        <div class="no-data">
+                                            <i class="fa-solid fa-inbox"></i>
+                                            <p>Không tìm thấy người dùng nào phù hợp với từ khóa tìm kiếm.</p>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endif; ?>
@@ -504,38 +461,11 @@ $conn->close();
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Xử lý xóa người dùng
-            const deleteButtons = document.querySelectorAll('.delete-btn');
-            deleteButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-user-id');
-                    const confirmDelete = confirm('Bạn có chắc chắn muốn xóa người dùng này? Hành động này không thể hoàn tác.');
-
-                    if (confirmDelete) {
-                        window.location.href = 'delete_user_admin.php?id=' + userId;
-                    }
-                });
-            });
-
-            // Xử lý kích hoạt/ngừng hoạt động
-            const statusButtons = document.querySelectorAll('.activate-btn, .deactivate-btn');
-            statusButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-user-id');
-                    const action = this.getAttribute('data-action');
-
-                    let confirmMessage = '';
-                    if (action === 'activate') {
-                        confirmMessage = 'Bạn có chắc chắn muốn kích hoạt tài khoản này?';
-                    } else {
-                        confirmMessage = 'Bạn có chắc chắn muốn ngừng hoạt động tài khoản này?';
-                    }
-
-                    if (confirm(confirmMessage)) {
-                        window.location.href = 'toggle_status_admin.php?id=' + userId + '&action=' + action;
-                    }
-                });
-            });
+            // Highlight từ khóa tìm kiếm trong bảng (optional)
+            const searchKeyword = "<?php echo htmlspecialchars($search_keyword); ?>";
+            if (searchKeyword) {
+                console.log('Đang tìm kiếm: ' + searchKeyword);
+            }
         });
 
 

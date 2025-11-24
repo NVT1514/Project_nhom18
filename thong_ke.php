@@ -97,30 +97,29 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
 
         /* ==== TOP BAR ==== */
         .topbar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 245px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: #fff;
             padding: 15px 25px;
-            border-radius: 12px;
+            border-radius: 0;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            margin-bottom: 25px;
+            margin-bottom: 0;
+            z-index: 100;
         }
 
-        .search-box {
-            display: flex;
-            align-items: center;
-            background: #f1f3f6;
-            border-radius: 8px;
-            padding: 8px 12px;
-            width: 400px;
+        .main-content {
+            padding-top: 100px;
         }
 
-        .search-box input {
-            border: none;
-            background: transparent;
-            outline: none;
-            margin-left: 8px;
+        .search-box h1 {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin: 0;
         }
 
         .user-box {
@@ -133,6 +132,108 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
             width: 40px;
             height: 40px;
             border-radius: 50%;
+        }
+
+        /* ==== USER DROPDOWN ==== */
+        .user-menu {
+            position: relative;
+        }
+
+        .user-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            color: #2c3e50;
+        }
+
+        .user-menu-btn:hover {
+            background: #f1f3f6;
+        }
+
+        .user-menu-btn img {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            min-width: 220px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .user-menu.active .dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .dropdown-menu a,
+        .dropdown-menu button {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            color: #898c95ff;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid #f3f3f3;
+            text-align: left;
+        }
+
+        .dropdown-menu a:first-child,
+        .dropdown-menu button:first-child {
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .dropdown-menu a:last-child,
+        .dropdown-menu button:last-child {
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            border-bottom: none;
+        }
+
+        .dropdown-menu a:hover,
+        .dropdown-menu button:hover {
+            background: #f1f3f6;
+        }
+
+        .dropdown-menu a i,
+        .dropdown-menu button i {
+            width: 20px;
+            font-size: 1.1rem;
+            color: #898c95ff;
+        }
+
+        .dropdown-menu button {
+            color: #898c95ff;
+        }
+
+        .dropdown-menu button i {
+            color: #898c95ff;
         }
 
         /* ==== OVERVIEW CARDS ==== */
@@ -426,15 +527,33 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
     <div class="container">
         <?php include "sidebar_admin.php"; ?>
         <div class="main-content">
-            <h1>Dashboard</h1>
             <div class="topbar">
                 <div class="search-box">
-                    <i class="fa fa-search"></i>
-                    <input type="text" placeholder="Tìm kiếm...">
+                    <h1>Thống kê</h1>
                 </div>
                 <div class="user-box">
                     <i class="fa-regular fa-bell"></i>
-                    <a href="admin.php"><img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar"></a>
+                    <div class="user-menu">
+                        <button class="user-menu-btn" onclick="toggleUserMenu()">
+                            <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Avatar">
+                            <span><?= htmlspecialchars($_SESSION['username'] ?? 'Admin'); ?></span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="admin.php">
+                                <i class="fa-solid fa-user"></i>
+                                <span>Tài khoản của tôi</span>
+                            </a>
+                            <a href="#">
+                                <i class="fa-solid fa-file-upload"></i>
+                                <span>Lịch sử xuất nhập file</span>
+                            </a>
+                            <button onclick="logoutUser()">
+                                <i class="fa-solid fa-sign-out-alt"></i>
+                                <span>Đăng xuất</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -593,6 +712,28 @@ $top_seller = mysqli_query($conn, $sql_top_seller);
                 }
             }
         });
+
+        // Toggle user dropdown menu
+        function toggleUserMenu() {
+            const userMenu = document.querySelector('.user-menu');
+            userMenu.classList.toggle('active');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const userMenu = document.querySelector('.user-menu');
+            const userBtn = document.querySelector('.user-menu-btn');
+            if (!userMenu.contains(event.target) && !userBtn.contains(event.target)) {
+                userMenu.classList.remove('active');
+            }
+        });
+
+        // Logout function
+        function logoutUser() {
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                window.location.href = 'login.php';
+            }
+        }
     </script>
 </body>
 

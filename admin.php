@@ -2,6 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+// Giả định file connectdb.php tồn tại và đã kết nối CSDL
 include "Database/connectdb.php";
 
 // Kiểm tra đăng nhập
@@ -25,12 +26,15 @@ if ($result->num_rows === 0) {
 
 $user = $result->fetch_assoc();
 
-// Cập nhật session
+// Cập nhật session (quan trọng cho các file include khác)
 $_SESSION['ho_ten'] = $user['Ho_Ten'] ?? $username;
 $_SESSION['avatar'] = $user['avatar'] ?? 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 $_SESSION['role'] = $user['role'] ?? 'user';
 
 $stmt->close();
+
+// Xác định Tab đang hoạt động
+$tab = $_GET['tab'] ?? 'view';
 ?>
 
 <!DOCTYPE html>
@@ -39,13 +43,16 @@ $stmt->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hồ sơ người dùng</title>
+    <title>Hồ sơ cá nhân Admin</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
+        /* CSS Cơ bản */
         body {
-            background-color: #f4f6f9;
-            font-family: "Segoe UI", sans-serif;
+            background-color: #f0f2f5;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
         }
 
         .main-content {
@@ -54,63 +61,110 @@ $stmt->close();
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            background-color: #f4f6f9;
+            min-height: calc(100vh - 80px);
+            /* Giả định có header/footer */
         }
 
-        .profile-container {
+        /* Profile Card Container */
+        .profile-card {
             background: #fff;
-            border-radius: 15px;
-            padding: 40px;
+            border-radius: 12px;
             width: 100%;
-            max-width: 750px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-            transition: 0.3s ease;
+            max-width: 800px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
 
-        .profile-container:hover {
-            transform: translateY(-3px);
-        }
-
-        .profile-header {
+        /* Header Section */
+        .profile-header-card {
+            background: #063250ff;
+            color: white;
+            padding: 30px;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
             display: flex;
             align-items: center;
-            gap: 25px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 25px;
+            gap: 20px;
+            position: relative;
         }
 
-        .profile-header img {
-            width: 130px;
-            height: 130px;
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            border: 4px solid #3498db;
-            box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+            border: 4px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .profile-header h2 {
+        .profile-info h3 {
             margin: 0;
-            font-size: 1.7rem;
-            color: #2c3e50;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: 600;
         }
 
-        .profile-header p {
+        .profile-info p {
+            margin: 2px 0 0 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* Tab Navigation */
+        .profile-tabs {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0 30px;
+            display: flex;
+        }
+
+        .profile-tabs a {
+            padding: 15px 20px;
+            text-decoration: none;
             color: #7f8c8d;
-            font-size: 1rem;
-            margin-top: 5px;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: color 0.2s, border-bottom 0.2s;
         }
 
-        .profile-details {
-            margin-top: 25px;
+        .profile-tabs a.active {
+            color: #3498db;
+            border-bottom: 3px solid #3498db;
         }
 
+        .profile-tabs a:hover {
+            color: #2c3e50;
+        }
+
+        /* Content Section */
+        .profile-content {
+            padding: 30px;
+        }
+
+        /* Alerts */
+        .alert-message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* View Details */
         .detail-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px dashed #eee;
+            font-size: 1rem;
         }
 
         .detail-row span {
@@ -123,242 +177,265 @@ $stmt->close();
             font-weight: 500;
         }
 
-        .profile-actions {
-            margin-top: 30px;
-            text-align: right;
-        }
-
-        .btn-edit {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 22px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .btn-edit:hover {
-            background-color: #2980b9;
-        }
-
-        .edit-form {
-            margin-top: 30px;
-            display: none;
-            background: #fefefe;
-            border-radius: 10px;
-            padding: 25px;
-            border: 1px solid #ddd;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-            animation: fadeIn 0.4s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .edit-form h3 {
+        /* Forms */
+        .form-section h4 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
             margin-bottom: 20px;
             color: #2c3e50;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 18px;
         }
 
         .form-group label {
             display: block;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
             color: #34495e;
+            font-size: 0.95rem;
         }
 
         .form-group input {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            transition: 0.2s;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
         }
 
         .form-group input:focus {
             outline: none;
             border-color: #3498db;
-            box-shadow: 0 0 4px rgba(52, 152, 219, 0.4);
         }
 
         .form-actions {
             text-align: right;
-            margin-top: 20px;
+            padding-top: 10px;
         }
 
-        .btn-save {
-            background-color: #27ae60;
+        .btn-primary {
+            background-color: #063250ff;
             color: white;
             border: none;
-            padding: 10px 18px;
+            padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
-            transition: 0.2s;
+            font-size: 1rem;
+            transition: background-color 0.2s;
         }
 
-        .btn-save:hover {
-            background-color: #219150;
+        .btn-primary:hover {
+            background-color: #156092ff;
         }
 
-        .btn-cancel {
-            background-color: #bdc3c7;
-            color: #2c3e50;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 6px;
-            margin-right: 10px;
-            cursor: pointer;
-            transition: 0.2s;
+        .btn-danger {
+            background-color: #e74c3c;
+            margin-left: 10px;
         }
 
-        .btn-cancel:hover {
-            background-color: #95a5a6;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: 500;
-            text-align: center;
+        .btn-danger:hover {
+            background-color: #c0392b;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <?php include 'sidebar_admin.php'; ?>
-        <div class="main-content">
-            <div class="profile-container">
-                <?php if (isset($_GET['success'])): ?>
-                    <div class="alert-success">✅ Cập nhật hồ sơ thành công!</div>
-                <?php endif; ?>
+        <?php include 'sidebar_admin.php'; // Sidebar chính của Admin Panel 
+        ?>
 
-                <div class="profile-header">
-                    <img src="<?php echo !empty($user['avatar']) ? htmlspecialchars($user['avatar']) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; ?>"
-                        alt="Avatar">
-                    <div>
-                        <h2><?php echo htmlspecialchars($user['Ho_Ten'] ?? 'Người dùng hệ thống'); ?></h2>
+        <div class="main-content">
+            <div class="profile-card">
+
+                <div class="profile-header-card">
+                    <img src="<?php echo htmlspecialchars($_SESSION['avatar']); ?>" alt="Avatar" class="profile-avatar">
+                    <div class="profile-info">
+                        <h3><?php echo htmlspecialchars($user['Ho_Ten'] ?? 'Người dùng hệ thống'); ?></h3>
+                        <p><i class="fa-solid fa-at"></i> Tài khoản: **<?php echo htmlspecialchars($user['Tai_Khoan']); ?>**</p>
                         <p>
                             <?php
                             if ($user['role'] === 'superadmin') {
-                                echo '👑 SuperAdmin - Toàn quyền hệ thống';
+                                echo '👑 SuperAdmin | Quản trị tối cao';
                             } elseif ($user['role'] === 'admin') {
-                                echo '🛠️ Admin - Quản trị viên hệ thống';
+                                echo '🛠️ Admin | Quản trị viên';
                             } else {
-                                echo '👤 Người dùng thông thường';
+                                echo '👤 User | Người dùng';
                             }
                             ?>
                         </p>
                     </div>
                 </div>
 
-                <div class="profile-details">
-                    <div class="detail-row">
-                        <span><i class="fa-solid fa-envelope"></i> Email:</span>
-                        <div class="value"><?php echo htmlspecialchars($user['Email'] ?? 'N/A'); ?></div>
-                    </div>
-                    <div class="detail-row">
-                        <span><i class="fa-solid fa-phone"></i> Số điện thoại:</span>
-                        <div class="value"><?php echo htmlspecialchars($user['phone'] ?? 'N/A'); ?></div>
-                    </div>
-                    <div class="detail-row">
-                        <span><i class="fa-solid fa-user-shield"></i> Quyền hạn:</span>
-                        <div class="value">
-                            <?php
-                            if ($user['role'] === 'superadmin') {
-                                echo 'SuperAdmin (Toàn quyền hệ thống)';
-                            } elseif ($user['role'] === 'admin') {
-                                echo 'Admin (Quản lý hệ thống)';
-                            } else {
-                                echo 'User (Người dùng thông thường)';
-                            }
-                            ?>
-                        </div>
-                    </div>
-                    <div class="detail-row">
-                        <span><i class="fa-solid fa-calendar"></i> Ngày tham gia:</span>
-                        <div class="value">
-                            <?php
-                            echo isset($user['Ngay_Tao']) && $user['Ngay_Tao']
-                                ? date("d/m/Y", strtotime($user['Ngay_Tao']))
-                                : 'Không xác định';
-                            ?>
-                        </div>
-                    </div>
+                <div class="profile-tabs">
+                    <a href="?tab=view" class="<?php echo ($tab === 'view' || $tab === 'edit') ? 'active' : ''; ?>">
+                        <i class="fa-solid fa-circle-user"></i> Thông tin chung
+                    </a>
+                    <a href="?tab=password" class="<?php echo $tab === 'password' ? 'active' : ''; ?>">
+                        <i class="fa-solid fa-lock"></i> Thay đổi mật khẩu
+                    </a>
                 </div>
 
-                <div class="profile-actions">
-                    <button class="btn-edit" id="editBtn"><i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa hồ sơ</button>
+                <div class="profile-content">
+
+                    <?php
+                    // Xử lý thông báo (giả định các file update_profile_admin.php và update_password_admin.php sẽ chuyển hướng về đây)
+                    if (isset($_GET['success_profile'])): ?>
+                        <div class="alert-message alert-success">✅ Cập nhật hồ sơ thành công!</div>
+                    <?php endif; ?>
+                    <?php if (isset($_GET['error_profile'])): ?>
+                        <div class="alert-message alert-error">❌ Lỗi hồ sơ: <?php echo htmlspecialchars($_GET['error_profile']); ?></div>
+                    <?php endif; ?>
+
+                    <?php if (isset($_GET['success_password'])): ?>
+                        <div class="alert-message alert-success">✅ Đổi mật khẩu thành công!</div>
+                    <?php endif; ?>
+                    <?php if (isset($_GET['error_password'])): ?>
+                        <div class="alert-message alert-error">❌ Lỗi mật khẩu: <?php echo htmlspecialchars($_GET['error_password']); ?></div>
+                    <?php endif; ?>
+
+                    <?php if ($tab === 'view' || $tab === 'edit'): ?>
+                        <div id="profile-view-section" style="display: <?php echo ($tab === 'view' || !isset($_GET['edit'])) ? 'block' : 'none'; ?>;">
+
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-user-tag"></i> Tài khoản:</span>
+                                <div class="value"><?php echo htmlspecialchars($user['Tai_Khoan'] ?? 'N/A'); ?></div>
+                            </div>
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-signature"></i> Họ và Tên:</span>
+                                <div class="value"><?php echo htmlspecialchars($user['Ho_Ten'] ?? 'N/A'); ?></div>
+                            </div>
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-envelope"></i> Email:</span>
+                                <div class="value"><?php echo htmlspecialchars($user['Email'] ?? 'N/A'); ?></div>
+                            </div>
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-phone"></i> Số điện thoại:</span>
+                                <div class="value"><?php echo htmlspecialchars($user['phone'] ?? 'N/A'); ?></div>
+                            </div>
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-user-shield"></i> Quyền hạn:</span>
+                                <div class="value">
+                                    <?php
+                                    echo ($user['role'] === 'superadmin' || $user['role'] === 'admin')
+                                        ? 'Quản trị viên'
+                                        : 'Người dùng thông thường';
+                                    ?>
+                                </div>
+                            </div>
+                            <div class="detail-row">
+                                <span><i class="fa-solid fa-calendar-plus"></i> Ngày tham gia:</span>
+                                <div class="value">
+                                    <?php
+                                    echo isset($user['Ngay_Tao']) && $user['Ngay_Tao']
+                                        ? date("d/m/Y", strtotime($user['Ngay_Tao']))
+                                        : 'N/A';
+                                    ?>
+                                </div>
+                            </div>
+
+                            <div class="form-actions" style="margin-top: 25px;">
+                                <button class="btn-primary" id="startEditBtn">
+                                    <i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa thông tin
+                                </button>
+                            </div>
+                        </div>
+
+                        <form id="profile-edit-form" method="POST" enctype="multipart/form-data" action="update_profile_admin.php"
+                            style="display: <?php echo ($tab === 'edit' || isset($_GET['error_profile'])) ? 'block' : 'none'; ?>;" class="form-section">
+
+                            <h4>Cập nhật Thông tin cá nhân</h4>
+
+                            <div class="form-group">
+                                <label for="avatar">Ảnh đại diện mới</label>
+                                <input type="file" name="avatar" id="avatar" accept="image/*">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ho_ten">Họ Tên</label>
+                                <input type="text" name="ho_ten" id="ho_ten" value="<?php echo htmlspecialchars($user['Ho_Ten'] ?? ''); ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($user['Email'] ?? ''); ?>" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="phone">Số điện thoại</label>
+                                <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn-primary" id="cancelEditBtn">Hủy</button>
+                                <button type="submit" class="btn-primary btn-danger">Lưu thay đổi</button>
+                            </div>
+                        </form>
+
+                    <?php elseif ($tab === 'password'): ?>
+                        <form method="POST" action="update_password_admin.php" class="form-section">
+                            <h4>Thay đổi mật khẩu tài khoản</h4>
+                            <p>Để đảm bảo an toàn, vui lòng nhập mật khẩu hiện tại và mật khẩu mới.</p>
+
+                            <div class="form-group">
+                                <label for="current_password">Mật khẩu hiện tại</label>
+                                <input type="password" name="current_password" id="current_password" required placeholder="Nhập mật khẩu hiện tại">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="new_password">Mật khẩu mới</label>
+                                <input type="password" name="new_password" id="new_password" required placeholder="Nhập mật khẩu mới">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confirm_password">Xác nhận mật khẩu mới</label>
+                                <input type="password" name="confirm_password" id="confirm_password" required placeholder="Xác nhận mật khẩu mới">
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn-primary btn-danger"><i class="fa-solid fa-key"></i> Đổi mật khẩu</button>
+                            </div>
+                        </form>
+
+                    <?php endif; ?>
                 </div>
-
-                <form class="edit-form" id="editForm" method="POST" enctype="multipart/form-data" action="update_profile_admin.php">
-                    <h3>Cập nhật thông tin hồ sơ</h3>
-
-                    <div class="form-group">
-                        <label for="avatar">Ảnh đại diện</label>
-                        <input type="file" name="avatar" id="avatar" accept="image/*">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ho_ten">Họ Tên</label>
-                        <input type="text" name="ho_ten" id="ho_ten" value="<?php echo htmlspecialchars($user['Ho_Ten'] ?? ''); ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" name="email" id="email" value="<?php echo htmlspecialchars($user['Email'] ?? ''); ?>" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="phone">Số điện thoại</label>
-                        <input type="text" name="phone" id="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Mật khẩu mới</label>
-                        <input type="password" name="password" id="password" placeholder="Nhập mật khẩu mới (nếu đổi)">
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn-cancel" id="cancelBtn">Hủy</button>
-                        <button type="submit" class="btn-save">Lưu thay đổi</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
 
     <script>
-        const editBtn = document.getElementById('editBtn');
-        const editForm = document.getElementById('editForm');
-        const cancelBtn = document.getElementById('cancelBtn');
+        document.addEventListener('DOMContentLoaded', function() {
+            const startEditBtn = document.getElementById('startEditBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            const profileView = document.getElementById('profile-view-section');
+            const profileEditForm = document.getElementById('profile-edit-form');
 
-        editBtn.addEventListener('click', () => {
-            editForm.style.display = 'block';
-            editBtn.style.display = 'none';
-        });
+            // Hàm chuyển sang chế độ chỉnh sửa
+            if (startEditBtn) {
+                startEditBtn.addEventListener('click', () => {
+                    if (profileView && profileEditForm) {
+                        profileView.style.display = 'none';
+                        profileEditForm.style.display = 'block';
+                        // Thêm tham số 'edit' vào URL (không load lại trang)
+                        history.pushState(null, null, '?tab=view&edit=1');
+                    }
+                });
+            }
 
-        cancelBtn.addEventListener('click', () => {
-            editForm.style.display = 'none';
-            editBtn.style.display = 'inline-block';
+            // Hàm chuyển về chế độ xem
+            if (cancelEditBtn) {
+                cancelEditBtn.addEventListener('click', () => {
+                    if (profileView && profileEditForm) {
+                        profileView.style.display = 'block';
+                        profileEditForm.style.display = 'none';
+                        // Xóa tham số 'edit' khỏi URL (không load lại trang)
+                        history.pushState(null, null, '?tab=view');
+                    }
+                });
+            }
         });
     </script>
 </body>

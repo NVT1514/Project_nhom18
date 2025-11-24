@@ -273,473 +273,9 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
 <head>
     <meta charset="UTF-8">
     <title>Thanh toán đơn hàng</title>
+    <link rel="stylesheet" href="css/cart.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <style>
-        /* ================================================= */
-        /* CSS MỚI THEO MẪU CHECKOUT BÊN TRÁI */
-        /* ================================================= */
-        body {
-            font-family: "Segoe UI", sans-serif;
-            background: #f5f6fa;
-            margin: 0;
-            padding: 40px 0;
-        }
-
-        .main-container {
-            display: grid;
-            grid-template-columns: 2.5fr 1.5fr;
-            gap: 30px;
-            max-width: 1280px;
-            margin: 100px auto 50px auto;
-            padding: 0 20px;
-            align-items: flex-start;
-        }
-
-        .checkout-left-col {
-            grid-column: 1 / 2;
-        }
-
-        .cart-right-col {
-            grid-column: 2 / 3;
-            position: sticky;
-            top: 40px;
-            /* Giữ cột tóm tắt đơn hàng cố định */
-        }
-
-        .section-box {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-            margin-bottom: 25px;
-            /* Khoảng cách giữa các box */
-        }
-
-        .section-box h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        /* Form Controls */
-        input[type="text"],
-        input[type="number"],
-        input[type="email"] {
-            width: 100%;
-            padding: 12px 14px;
-            margin-bottom: 15px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-sizing: border-box;
-        }
-
-        /* Shipping Method */
-        .shipping-method label,
-        .payment-method label {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .shipping-method input[type="radio"],
-        .payment-method input[type="radio"] {
-            margin-right: 15px;
-            transform: scale(1.2);
-        }
-
-        /* TABLE CART CHI TIẾT */
-        .cart-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .cart-table th {
-            padding: 12px 0;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-            font-size: 14px;
-            font-weight: 600;
-            color: #7f8c8d;
-        }
-
-        .cart-table td {
-            padding: 20px 0;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
-        }
-
-        .product-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .product-info img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 8px;
-        }
-
-        .product-details {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .product-details .name {
-            font-weight: 600;
-            font-size: 16px;
-            color: #34495e;
-        }
-
-        .product-details .size {
-            font-size: 13px;
-            color: #7f8c8d;
-        }
-
-        .quantity-control input {
-            width: 60px;
-            padding: 8px;
-            text-align: center;
-            margin: 0;
-            display: inline-block;
-        }
-
-        .price-col {
-            font-weight: 600;
-            color: #e67e22;
-            text-align: right;
-        }
-
-        .remove-col a {
-            color: #e74c3c;
-            font-size: 18px;
-            text-decoration: none;
-        }
-
-        .update-btn-row {
-            text-align: right;
-            margin-top: 15px;
-        }
-
-        .update-btn-row button {
-            background: #3498db;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        /* ================================================= */
-        /* CỘT PHẢI - TÓM TẮT ĐƠN HÀNG */
-        /* ================================================= */
-        .cart-summary {
-            /* Giữ nguyên style này */
-        }
-
-        .cart-summary h2 {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: none;
-        }
-
-        .cart-summary h2 span {
-            color: #0b2096ff;
-            font-size: 14px;
-            font-weight: 400;
-        }
-
-        /* Item trong giỏ hàng (cho cột tóm tắt) */
-        .cart-item-list {
-            max-height: 400px;
-            overflow-y: auto;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-
-        .cart-item {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f9f9f9;
-        }
-
-        .cart-item img {
-            width: 60px;
-            height: 60px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 1px solid #ecf0f1;
-        }
-
-        .item-details {
-            flex-grow: 1;
-            text-align: left;
-        }
-
-        .item-details .name {
-            font-weight: 500;
-            font-size: 15px;
-        }
-
-        .item-details .qty {
-            font-size: 12px;
-            color: #7f8c8d;
-        }
-
-        .item-price {
-            font-weight: 600;
-            color: #34495e;
-            text-align: right;
-            /* căn phải giá */
-        }
-
-        /* Voucher Box */
-        .voucher-input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            /* Giảm margin bottom */
-        }
-
-        .voucher-input-group button {
-            background: #0b2096ff;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 200px;
-            height: 44px;
-            white-space: nowrap;
-            /* Ngăn nút bị xuống dòng */
-        }
-
-        /* Tối ưu thẻ voucher (Thay thế hoặc cập nhật) */
-        .voucher-card {
-            background: #ecf0f1;
-            padding: 10px 15px;
-            /* Giảm padding */
-            border-radius: 8px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s;
-            min-width: 150px;
-            max-width: 200px;
-            flex: 0 0 auto;
-            /* Ngăn co giãn, chỉ cuộn */
-        }
-
-        .voucher-card.selected {
-            border-color: #0c23a7ff;
-            background: #eaf6fd;
-        }
-
-        .voucher-card strong {
-            font-size: 16px;
-            /* Mã voucher to hơn */
-            font-weight: 700;
-            color: #0b2096ff;
-            /* Màu nổi bật */
-        }
-
-        .voucher-card p {
-            margin: 2px 0 0;
-            /* Giảm margin giữa các dòng */
-            font-size: 12px;
-            color: #7f8c8d;
-        }
-
-        /* Đảm bảo danh sách cuộn mượt mà (Đã loại bỏ các nút cuộn) */
-        .voucher-list {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            gap: 12px;
-            padding-bottom: 10px;
-            scroll-behavior: smooth;
-            scrollbar-width: thin;
-            /* Firefox */
-        }
-
-        /* CSS MỚI CHO THÔNG BÁO VOUCHER */
-        .voucher-message {
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .voucher-message.success {
-            background-color: #e6f7d9;
-            /* Màu xanh lá nhạt */
-            color: #2ecc71;
-            /* Màu chữ xanh lá */
-            border: 1px solid #b7eb8f;
-        }
-
-        .voucher-message.error {
-            background-color: #fff1f0;
-            /* Màu đỏ nhạt */
-            color: #e74c3c;
-            /* Màu chữ đỏ */
-            border: 1px solid #ffa39e;
-        }
-
-        /* HẾT CSS MỚI CHO THÔNG BÁO VOUCHER */
-
-
-        /* Total Summary */
-        .total-summary {
-            margin-top: 20px;
-            /* Giảm margin top */
-            padding-top: 10px;
-            /* Giảm padding top */
-        }
-
-        .total-summary .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-
-        .total-summary .final-total-row {
-            font-size: 22px;
-            font-weight: 700;
-            color: #e67e22;
-            margin-top: 15px;
-        }
-
-        .place-order-btn {
-            background-color: #1a6dcc;
-            color: white;
-            padding: 15px;
-            font-size: 18px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 20px;
-        }
-
-        /* Responsive */
-        @media (max-width: 992px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-
-            .cart-right-col {
-                position: static;
-            }
-
-            .cart-table th,
-            .cart-table td {
-                font-size: 12px;
-            }
-
-            .product-info {
-                align-items: flex-start;
-                gap: 10px;
-            }
-
-            .product-info img {
-                width: 60px;
-                height: 60px;
-            }
-
-            .quantity-control input {
-                width: 50px;
-            }
-        }
-
-        /* Modal QR (giữ nguyên) */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.6);
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            padding: 25px 25px 40px;
-            width: 95%;
-            max-width: 420px;
-            text-align: center;
-            position: relative;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .close-btn {
-            position: absolute;
-            top: 12px;
-            right: 18px;
-            font-size: 26px;
-            cursor: pointer;
-        }
-
-        .qr-wrapper h2 {
-            font-size: 22px;
-            margin-bottom: 10px;
-            color: #222;
-        }
-
-        .qr-wrapper .amount {
-            color: #e53935;
-            font-size: 20px;
-            font-weight: bold;
-            margin: 10px 0 20px;
-        }
-
-        .qr-wrapper img.qr-img {
-            width: 260px;
-            border-radius: 10px;
-            margin: 20px 0;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-        }
-
-        .qr-wrapper button {
-            background: #28a745;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        .navbar-menu a ::after,
-        .dropdown-toggle::after {
-            content: none !important;
-            border: none !important;
-            display: none !important;
-        }
-    </style>
 </head>
 
 <body>
@@ -760,40 +296,47 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
                     <form method="POST" id="updateQtyForm" action="cart.php?voucher=<?= urlencode($voucher_code) ?>">
                         <input type="hidden" name="update_qty" value="1">
                         <input type="hidden" name="applied_voucher_code" value="<?= htmlspecialchars($voucher_code) ?>">
-                        <table class="cart-table">
-                            <thead>
-                                <tr>
-                                    <th>Sản phẩm</th>
-                                    <th>Giá</th>
-                                    <th style="width: 100px;">Số lượng</th>
-                                    <th style="text-align: right;">Thành tiền</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($cart_items as $item): ?>
-                                    <tr>
-                                        <td>
-                                            <div class="product-info">
-                                                <img src="uploads/<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>">
-                                                <div class="product-details">
-                                                    <span class="name"><?= htmlspecialchars($item['ten_san_pham']) ?></span>
-                                                    <span class="size">Size: <?= htmlspecialchars($item['size']) ?></span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td><?= number_format($item['gia'], 0, ',', '.') ?>đ</td>
-                                        <td class="quantity-control">
-                                            <input type="number" name="quantity[<?= $item['cart_id'] ?>]" value="<?= $item['so_luong'] ?>" min="1" onblur="document.getElementById('updateQtyForm').submit()">
-                                        </td>
-                                        <td class="price-col"><?= number_format($item['gia'] * $item['so_luong'], 0, ',', '.') ?>đ</td>
-                                        <td class="remove-col">
-                                            <a href="?remove=<?= $item['cart_id'] ?>&voucher=<?= urlencode($voucher_code) ?>" onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?');"><i class="fa-solid fa-xmark"></i></a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+
+                        <div class="cart-items-container">
+                            <?php foreach ($cart_items as $item): ?>
+                                <div class="cart-item-detail-card">
+
+                                    <a href="?remove=<?= $item['cart_id'] ?>&voucher=<?= urlencode($voucher_code) ?>"
+                                        class="remove-item-btn"
+                                        onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?');"
+                                        title="Xóa sản phẩm"><i class="fa-solid fa-xmark"></i></a>
+
+                                    <div class="product-info-left">
+                                        <img src="uploads/<?= htmlspecialchars($item['hinh_anh']) ?>" alt="<?= htmlspecialchars($item['ten_san_pham']) ?>" class="product-thumb">
+                                        <div class="product-details-content">
+                                            <span class="product-name-title"><?= htmlspecialchars($item['ten_san_pham']) ?></span>
+                                            <span class="product-size">Size: <?= htmlspecialchars($item['size']) ?></span>
+                                            <span class="product-price-unit"><?= number_format($item['gia'], 0, ',', '.') ?>đ / SP</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="product-actions-right">
+                                        <div class="quantity-control-new">
+                                            <label>Số lượng:</label>
+                                            <input type="number"
+                                                name="quantity[<?= $item['cart_id'] ?>]"
+                                                value="<?= $item['so_luong'] ?>"
+                                                min="1"
+                                                class="qty-input-field"
+                                                onchange="updateCartItem(<?= $item['cart_id'] ?>, this.value, <?= $item['gia'] ?>)">
+                                        </div>
+                                        <div class="item-subtotal">
+                                            <label>Thành tiền:</label>
+                                            <span class="subtotal-amount" id="subtotal-<?= $item['cart_id'] ?>">
+                                                <?= number_format($item['gia'] * $item['so_luong'], 0, ',', '.') ?>đ
+                                            </span>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
                         <div class="update-btn-row">
                         </div>
                     </form>
@@ -1046,6 +589,79 @@ while ($row = mysqli_fetch_assoc($result_vouchers_display)) {
 
         // Loại bỏ hàm scrollVoucher đã cũ.
     </script>
+    <script>
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+        // Hàm cập nhật số lượng và tính lại tổng tiền
+        function updateCartItem(cartId, qty, price) {
+            qty = parseInt(qty);
+            if (qty < 1) qty = 1;
+
+            const subtotalEl = document.querySelector(`#subtotal-${cartId}`);
+
+            // 1. Chuẩn bị dữ liệu gửi đi (POST data)
+            const formData = new FormData();
+            formData.append('ajax_update_qty', 1);
+            formData.append('cart_id', cartId);
+            formData.append('qty', qty); // Gửi số lượng khách muốn mua
+
+            // 2. Gửi yêu cầu AJAX
+            fetch('cart_update_ajax.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // 3. Xử lý phản hồi JSON
+                    if (data.success) {
+                        const actualQty = data.new_qty; // Lấy số lượng thực tế đã được giới hạn từ PHP
+                        const newSubtotal = actualQty * price;
+
+                        // A. Cập nhật input number trong giỏ hàng
+                        const qtyInput = document.querySelector(`input[name="quantity[${cartId}]"]`);
+                        qtyInput.value = actualQty;
+
+                        // B. Cập nhật thành tiền
+                        subtotalEl.textContent = numberWithCommas(newSubtotal) + "đ";
+
+                        // C. Hiển thị thông báo nếu số lượng bị giới hạn
+                        if (actualQty !== qty) {
+                            alert(`⚠️ ${data.message}`);
+                        }
+
+                        // D. Cập nhật lại tổng tiền tạm tính
+                        recalculateTotal();
+
+                    } else {
+                        // Hiển thị lỗi từ PHP (ví dụ: lỗi đăng nhập, lỗi CSDL)
+                        alert(`Lỗi: ${data.message}`);
+                    }
+                })
+                .catch(err => {
+                    // Lỗi kết nối mạng
+                    console.error(err);
+                    alert('Lỗi kết nối máy chủ! Vui lòng thử lại.');
+                });
+        }
+
+        function recalculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.subtotal-amount').forEach(el => {
+                const val = parseInt(el.textContent.replace(/\D/g, '')) || 0;
+                total += val;
+            });
+
+            // Tạm tính
+            document.querySelector('.total-summary .total-row span:last-child').textContent = numberWithCommas(total) + "đ";
+
+            // Giảm giá (tạm tính lại, vẫn dựa trên voucher hiện có)
+            let discount = <?= (int)$discount_amount ?>;
+            let finalTotal = Math.max(0, total - discount);
+            document.querySelector('.final-total-row span:last-child').textContent = numberWithCommas(finalTotal) + "đ";
+        }
+    </script>
+
 
     <?php include 'footer.php'; ?>
 </body>

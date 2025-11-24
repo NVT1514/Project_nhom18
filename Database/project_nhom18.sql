@@ -31,6 +31,12 @@ CREATE TABLE `user` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+ALTER TABLE `user`
+ADD COLUMN `trang_thai` TINYINT(1) DEFAULT 1 AFTER `Ngay_Tao`;
+
+-- Cập nhật dữ liệu hiện có (nếu cần, để đảm bảo các user cũ đang Hoạt động)
+UPDATE `user` SET `trang_thai` = 1 WHERE `trang_thai` IS NULL;
+
 INSERT INTO
     `user` (
         `id`,
@@ -199,6 +205,10 @@ CREATE TABLE `san_pham` (
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_sanpham_phanloai` FOREIGN KEY (`phan_loai_id`) REFERENCES `phan_loai_san_pham` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Thêm cột SKU vào bảng san_pham
+ALTER TABLE `san_pham`
+ADD COLUMN `sku` VARCHAR(50) DEFAULT NULL UNIQUE AFTER `ten_san_pham`;
 
 -- Dữ liệu mẫu SẢN PHẨM đã được cập nhật phan_loai_id để khớp với cấu trúc mới:
 -- Áo thun (ID 3), Áo sơ mi (ID 4), Quần jean (ID 6)
@@ -452,23 +462,188 @@ VALUES (
     );
 
 -- ==============================================
--- 🔹 BẢNG LỊCH SỬ NHẬP / XUẤT KHO (GIỮ NGUYÊN)
+-- 🔹 BẢNG LỊCH SỬ NHẬP / XUẤT KHO
 -- ==============================================
 DROP TABLE IF EXISTS `lich_su_kho`;
 
 CREATE TABLE `lich_su_kho` (
-    `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `product_id` INT(11) NOT NULL,
-    `ten_san_pham` VARCHAR(255) NOT NULL,
-    `hanh_dong` ENUM('Nhập hàng', 'Xuất hàng') NOT NULL,
-    `so_luong` INT(11) NOT NULL,
-    `nha_cung_cap` VARCHAR(255) DEFAULT NULL,
-    `tong_tien` DECIMAL(15, 2) DEFAULT 0,
-    `gia_moi` DECIMAL(15, 2) NULL, -- Đã giữ nguyên cột này
-    `ngay_thuc_hien` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    CONSTRAINT `fk_lich_su_kho_sanpham` FOREIGN KEY (`product_id`) REFERENCES `san_pham` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+    `id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `ten_san_pham` varchar(255) NOT NULL,
+    `hanh_dong` enum('Nhập hàng', 'Xuất hàng') NOT NULL,
+    `so_luong` int(11) NOT NULL,
+    `nha_cung_cap` varchar(255) DEFAULT NULL,
+    `tong_tien` decimal(15, 2) DEFAULT 0.00,
+    `gia_moi` decimal(15, 2) DEFAULT NULL,
+    `ngay_thuc_hien` datetime DEFAULT current_timestamp()
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+ALTER TABLE `lich_su_kho`
+ADD PRIMARY KEY (`id`),
+ADD KEY `fk_lich_su_kho_sanpham` (`product_id`);
+
+ALTER TABLE `lich_su_kho`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 4;
+
+ALTER TABLE `lich_su_kho`
+ADD CONSTRAINT `fk_lich_su_kho_sanpham` FOREIGN KEY (`product_id`) REFERENCES `san_pham` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ==============================================
+-- 4️⃣f BẢNG LỊCH SỬ NHẬP KHO
+-- ==============================================
+CREATE TABLE `lich_su_nhap_kho` (
+    `id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `quantity` int(11) NOT NULL,
+    `supplier` varchar(255) NOT NULL,
+    `note` text DEFAULT NULL,
+    `created_at` datetime NOT NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+ALTER TABLE `lich_su_nhap_kho`
+ADD PRIMARY KEY (`id`),
+ADD KEY `product_id` (`product_id`);
+
+ALTER TABLE `lich_su_nhap_kho`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 4;
+
+ALTER TABLE `lich_su_nhap_kho`
+ADD CONSTRAINT `lich_su_nhap_kho_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `san_pham` (`id`) ON DELETE CASCADE;
+
+-- ==============================================
+-- 4️⃣g BẢNG LỊCH SỬ XUẤT KHO
+-- ==============================================
+CREATE TABLE `lich_su_xuat_kho` (
+    `id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `quantity` int(11) NOT NULL,
+    `reason` varchar(255) NOT NULL,
+    `note` text DEFAULT NULL,
+    `created_at` datetime NOT NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `lich_su_xuat_kho`
+ADD PRIMARY KEY (`id`),
+ADD KEY `product_id` (`product_id`);
+
+ALTER TABLE `lich_su_xuat_kho`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 2;
+
+-- ==============================================
+-- 4️⃣h BẢNG NHẬT KÝ HOẠT ĐỘNG
+-- ==============================================
+CREATE TABLE `nhat_ky_hoat_dong` (
+    `id` int(11) NOT NULL,
+    `user_id` int(11) NOT NULL,
+    `ten_tai_khoan` varchar(50) NOT NULL,
+    `module` varchar(100) NOT NULL,
+    `hanh_dong_chi_tiet` varchar(500) NOT NULL,
+    `ngay_gio` datetime DEFAULT current_timestamp()
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+ALTER TABLE `nhat_ky_hoat_dong`
+ADD PRIMARY KEY (`id`),
+ADD KEY `ngay_gio` (`ngay_gio`),
+ADD KEY `module` (`module`);
+
+ALTER TABLE `nhat_ky_hoat_dong`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 5;
+--
+-- Dumping data for table `nhat_ky_hoat_dong`
+--
+
+INSERT INTO
+    `nhat_ky_hoat_dong` (
+        `id`,
+        `user_id`,
+        `ten_tai_khoan`,
+        `module`,
+        `hanh_dong_chi_tiet`,
+        `ngay_gio`
+    )
+VALUES (
+        1,
+        1,
+        'admin',
+        'Quản lý Sản phẩm',
+        'đã thêm sản phẩm mới: Quần bò nam đẹp d (SL: 21)',
+        '2025-11-16 10:55:44'
+    ),
+    (
+        2,
+        1,
+        'admin',
+        'Quản lý Đơn hàng',
+        'đã cập nhật trạng thái đơn hàng #4 thành: **Đang chuẩn bị hàng**',
+        '2025-11-16 11:05:14'
+    ),
+    (
+        3,
+        1,
+        'admin',
+        'Quản lý Sản phẩm',
+        'đã **xóa** sản phẩm: Quần bò nam đẹp d (ID: 8)',
+        '2025-11-16 11:08:20'
+    ),
+    (
+        4,
+        1,
+        'admin',
+        'Quản lý Đơn hàng',
+        'đã cập nhật trạng thái đơn hàng #4 thành: **Đang giao**',
+        '2025-11-16 12:46:00'
+    );
+
+-- ==============================================
+-- 4️⃣h BẢNG PHIẾU KIỂM KÊ
+-- ==============================================
+CREATE TABLE `phieu_kiem_ke` (
+    `id` int(11) NOT NULL,
+    `title` varchar(255) NOT NULL,
+    `note` text DEFAULT NULL,
+    `status` enum(
+        'pending',
+        'completed',
+        'cancelled'
+    ) DEFAULT 'pending',
+    `created_by` varchar(100) NOT NULL,
+    `created_at` datetime NOT NULL,
+    `completed_at` datetime DEFAULT NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `phieu_kiem_ke` ADD PRIMARY KEY (`id`);
+
+ALTER TABLE `phieu_kiem_ke`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 2;
+
+-- ==============================================
+-- 5️⃣ BẢNG CHI TIẾT KIỂM KÊ
+-- ==============================================
+CREATE TABLE `chi_tiet_kiem_ke` (
+    `id` int(11) NOT NULL,
+    `inventory_id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `system_quantity` int(11) NOT NULL,
+    `actual_quantity` int(11) DEFAULT 0,
+    `difference` int(11) DEFAULT 0
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `chi_tiet_kiem_ke`
+ADD PRIMARY KEY (`id`),
+ADD KEY `inventory_id` (`inventory_id`),
+ADD KEY `product_id` (`product_id`);
+
+ALTER TABLE `chi_tiet_kiem_ke`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,
+AUTO_INCREMENT = 8;
+
+ALTER TABLE `chi_tiet_kiem_ke`
+ADD CONSTRAINT `chi_tiet_kiem_ke_ibfk_1` FOREIGN KEY (`inventory_id`) REFERENCES `phieu_kiem_ke` (`id`) ON DELETE CASCADE;
 
 -- ==============================================
 -- 6️⃣ BẢNG BANNER (QUẢNG CÁO, THÔNG BÁO) (GIỮ NGUYÊN)

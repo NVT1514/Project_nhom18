@@ -80,14 +80,25 @@ function lay_tai_khoan($tk, $mk)
 ?>
 
 <?php
-// ✅ Cập nhật hàm them_san_pham để có thêm tham số $so_luong
-function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong)
+// ✅ Cập nhật hàm them_san_pham để có thêm tham số $so_luong và $ma_sku
+function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai_chinh, $so_luong, $ma_sku)
 {
     global $conn;
 
-    // 1️⃣ Kiểm tra dữ liệu đầu vào
-    if (empty($ten_san_pham) || empty($gia) || empty($phan_loai) || empty($loai_chinh) || empty($so_luong)) {
-        return "❌ Vui lòng nhập đầy đủ thông tin sản phẩm.";
+    // 1️⃣ Kiểm tra dữ liệu đầu vào (Thêm kiểm tra $ma_sku)
+    if (empty($ten_san_pham) || empty($gia) || empty($phan_loai) || empty($loai_chinh) || empty($so_luong) || empty($ma_sku)) {
+        return "❌ Vui lòng nhập đầy đủ thông tin sản phẩm (bao gồm Mã SKU).";
+    }
+
+    // ✅ Kiểm tra Mã SKU đã tồn tại chưa (Đã đổi tên cột từ 'ma_sku' thành 'sku')
+    $sql_check_sku = "SELECT id FROM san_pham WHERE sku = ? LIMIT 1"; // <== ĐÃ SỬA TỪ ma_sku THÀNH sku
+    $stmt_sku = $conn->prepare($sql_check_sku);
+    $stmt_sku->bind_param("s", $ma_sku);
+    $stmt_sku->execute();
+    $result_sku = $stmt_sku->get_result();
+
+    if ($result_sku->num_rows > 0) {
+        return "❌ Mã SKU này đã tồn tại. Vui lòng chọn Mã SKU khác.";
     }
 
     // 2️⃣ Kiểm tra phân loại hợp lệ trong bảng phan_loai_san_pham
@@ -109,6 +120,7 @@ function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai
     $phan_loai_id = $phan_loai_data['id']; // để lưu khóa ngoại
 
     // 3️⃣ Xử lý hình ảnh (nếu có)
+    // ... (logic xử lý hình ảnh giữ nguyên)
     $ten_file = null;
     if (!empty($hinh_anh['name'])) {
         $target_dir = "uploads/";
@@ -130,13 +142,25 @@ function them_san_pham($ten_san_pham, $gia, $mo_ta, $hinh_anh, $phan_loai, $loai
         }
     }
 
-    // 4️⃣ Thêm sản phẩm (có lưu khóa ngoại phan_loai_id + số lượng)
+    // 4️⃣ Thêm sản phẩm (Đã đổi tên cột từ 'ma_sku' thành 'sku')
     $sql_insert = "INSERT INTO san_pham 
-        (ten_san_pham, gia, mo_ta, hinh_anh, phan_loai, loai_chinh, phan_loai_id, so_luong)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        (ten_san_pham, gia, mo_ta, hinh_anh, phan_loai, loai_chinh, phan_loai_id, so_luong, sku)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"; // <== ĐÃ SỬA TỪ ma_sku THÀNH sku
 
     $stmt = $conn->prepare($sql_insert);
-    $stmt->bind_param("sdssssii", $ten_san_pham, $gia, $mo_ta, $ten_file, $phan_loai, $loai_chinh, $phan_loai_id, $so_luong);
+    // Tham số: sdssssiis (string, double, string, string, string, string, integer, integer, string)
+    $stmt->bind_param(
+        "sdssssiis",
+        $ten_san_pham,
+        $gia,
+        $mo_ta,
+        $ten_file,
+        $phan_loai,
+        $loai_chinh,
+        $phan_loai_id,
+        $so_luong,
+        $ma_sku // Tên biến PHP vẫn là $ma_sku
+    );
 
     if ($stmt->execute()) {
         return true;
